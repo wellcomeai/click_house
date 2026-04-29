@@ -2,7 +2,7 @@ import apiClient from "./client"
 import type { Agent } from "@/types"
 import { useAuthStore } from "@/store/authStore"
 
-const BASE_URL = import.meta.env.VITE_API_URL || "/api"
+const BASE_URL = import.meta.env.VITE_API_URL || ""
 
 export const agentsApi = {
   getAll: () => apiClient.get<{ agents: Agent[] }>("/agents/").then((r) => r.data.agents),
