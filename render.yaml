@@ -8,9 +8,17 @@ services:
   - type: web
     name: clickhouse-irkutsk-api
     env: python
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: alembic upgrade head && python scripts/create_admin.py && uvicorn main:app --host 0.0.0.0 --port $PORT
+    rootDir: .
+    buildCommand: >
+      cd frontend && npm install && npm run build &&
+      mkdir -p ../backend/static &&
+      cp -r dist/* ../backend/static/ &&
+      cd ../backend && pip install -r requirements.txt
+    startCommand: >
+      cd backend &&
+      alembic upgrade head &&
+      python scripts/create_admin.py &&
+      uvicorn main:app --host 0.0.0.0 --port $PORT
     plan: free
     envVars:
       - key: DATABASE_URL
@@ -36,22 +44,6 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: CORS_ORIGINS
-        value: https://clickhouse-irkutsk-frontend.onrender.com
-
-  - type: web
-    name: clickhouse-irkutsk-frontend
-    env: static
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: dist
-    plan: free
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
+        value: https://click-house.onrender.com
       - key: VITE_API_URL
-        fromService:
-          name: clickhouse-irkutsk-api
-          type: web
-          property: hostURL
+        value: https://click-house.onrender.com
