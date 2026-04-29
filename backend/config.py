@@ -1,3 +1,5 @@
+# backend/config.py
+
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,6 +25,14 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def async_database_url(self) -> str:
+        return self.database_url.replace(
+            "postgresql://", "postgresql+asyncpg://"
+        ).replace(
+            "postgres://", "postgresql+asyncpg://"
+        )
 
 
 @lru_cache
