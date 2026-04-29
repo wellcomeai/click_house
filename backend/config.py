@@ -1,7 +1,6 @@
 # backend/config.py
 
 from functools import lru_cache
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +18,10 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     environment: str = "development"
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+
+    # Stored as plain string to avoid pydantic-settings JSON-parsing issues.
+    # Accepts: "https://a.com" or "https://a.com,https://b.com"
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -27,17 +29,9 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors(cls, v):
-        if isinstance(v, str):
-            v = v.strip()
-            if v.startswith("["):
-                import json
-                return json.loads(v)
-            # comma-separated: "https://a.com,https://b.com"
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    def get_cors_origins(self) -> list[str]:
+        v = self.cors_origins.strip()
+        return [o.strip() for o in v.split(",") if o.strip()]
 
     @property
     def async_database_url(self) -> str:
