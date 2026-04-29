@@ -1,8 +1,11 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from config import settings
 
@@ -29,7 +32,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.get_cors_origins(),  # ← изменено
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,3 +54,14 @@ app.include_router(ai_router, prefix="/agents", tags=["agents"])
 @app.get("/health", tags=["system"])
 async def health():
     return {"status": "ok"}
+
+
+# Serve React frontend — must be AFTER all API routes
+FRONTEND_DIST = Path(__file__).parent / "static"
+
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        return FileResponse(FRONTEND_DIST / "index.html")
