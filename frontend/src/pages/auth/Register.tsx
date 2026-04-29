@@ -41,7 +41,7 @@ export function Register() {
     <div
       className="min-h-screen w-full flex items-center"
       style={{
-        backgroundImage: "url('/bg-login.jpg')",
+        backgroundImage: "url('/bg-login.png')",
         backgroundSize: "cover",
         backgroundPosition: "center right",
         backgroundRepeat: "no-repeat",
