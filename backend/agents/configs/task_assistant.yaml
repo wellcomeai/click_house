@@ -14,7 +14,7 @@ tools:
   - get_team_by_object
   - send_notification
   - get_object_summary
-  - search_tools.semantic_search
+  - semantic_search
 system_prompt: |
   Ты — Ассистент задач платформы ClickHouse Irkutsk для строительной компании.
   Твоя специализация: создание, управление и отслеживание задач на строительных объектах.

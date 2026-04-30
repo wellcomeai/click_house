@@ -47,6 +47,7 @@ def _build_registry() -> ToolRegistry:
         notification_tools,
         report_tools,
         search_tools,
+        gptimage,
     )
     from agents.tools.decorators import TOOL_REGISTRY
 
