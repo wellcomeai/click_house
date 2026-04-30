@@ -1,35 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* Clickhome Brand */
+    --ch-graphite: #3d3d3d;
+    --ch-graphite-mid: #5a5a5a;
+    --ch-graphite-light: #8a8a8a;
+    --ch-green: #22b722;
+    --ch-green-dark: #1a9a1a;
+    --ch-green-xlight: #f0faf0;
+    --ch-green-light: #dcf5dc;
+    --ch-bg: #f2f4f7;
+    --ch-surface: #ffffff;
+    --ch-border: #e4e8ed;
+    --ch-border-light: #edf0f4;
+
+    /* shadcn compat */
+    --background: 220 14% 96%;
+    --foreground: 0 0% 24%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --primary: 213 94% 30%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 90%;
-    --accent-foreground: 222 47% 11%;
+    --card-foreground: 0 0% 24%;
+    --border: 214 20% 89%;
+    --input: 214 20% 89%;
+    --primary: 120 68% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 95%;
+    --secondary-foreground: 0 0% 24%;
+    --muted: 210 20% 95%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 120 68% 95%;
+    --accent-foreground: 120 68% 25%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --ring: 213 94% 30%;
-    --radius: 0.5rem;
+    --ring: 120 68% 42%;
+    --radius: 0.6rem;
   }
 
   * {
     @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-[#f2f4f7] text-[#3d3d3d];
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    color: var(--ch-graphite);
+  }
+}
+
+@layer utilities {
+  /* Glass morphism utilities */
+  .glass-sidebar {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border-right: 1px solid rgba(228, 232, 237, 0.8);
+  }
+
+  .glass-header {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border-bottom: 1px solid rgba(228, 232, 237, 0.6);
+  }
+
+  /* Active nav item */
+  .nav-active {
+    background: var(--ch-green-xlight);
+    color: var(--ch-green-dark);
+    border-left: 3px solid var(--ch-green);
+  }
+
+  .nav-item {
+    border-left: 3px solid transparent;
+    transition: all 0.18s ease;
+  }
+
+  .nav-item:hover {
+    background: var(--ch-green-xlight);
+    color: var(--ch-graphite);
+  }
+
+  /* Card polish */
+  .card-surface {
+    background: var(--ch-surface);
+    border: 1px solid var(--ch-border-light);
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+  }
+
+  /* Smooth sidebar transition */
+  .sidebar-transition {
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.22s ease,
+                transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Green dot indicator */
+  .status-dot-green::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ch-green);
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ch-border);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ch-graphite-light);
 }
