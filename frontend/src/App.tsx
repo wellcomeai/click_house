@@ -12,6 +12,7 @@ import { ObjectsList } from "@/pages/objects/ObjectsList"
 import { ObjectDetail } from "@/pages/objects/ObjectDetail"
 import { ObjectCreate } from "@/pages/objects/ObjectCreate"
 import { MyTasks } from "@/pages/tasks/MyTasks"
+import { TaskDetail } from "@/pages/tasks/TaskDetail"
 import { Profile } from "@/pages/profile/Profile"
 import { AgentChat } from "@/pages/agents/AgentChat"
 import { AdminUsers } from "@/pages/admin/Users"
@@ -43,6 +44,7 @@ function App() {
               <Route path="/objects/new" element={<ObjectCreate />} />
               <Route path="/objects/:id" element={<ObjectDetail />} />
               <Route path="/tasks" element={<MyTasks />} />
+              <Route path="/tasks/:id" element={<TaskDetail />} />
               <Route path="/profile" element={<Profile />} />
 
               {/* Agents — admin, manager, foreman only */}

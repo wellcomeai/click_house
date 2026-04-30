@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, MapPin, Calendar, DollarSign, Plus, X } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, DollarSign, Plus, X, User } from "lucide-react"
 import { objectsApi } from "@/api/objects"
 import { tasksApi } from "@/api/tasks"
 import { usersApi } from "@/api/users"
@@ -37,6 +37,35 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "files", label: "Файлы и фото" },
   { key: "journal", label: "Журнал" },
 ]
+
+function UserNameBadge({ userId, label }: { userId: string; label: string }) {
+  const { data: user } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => usersApi.getById(userId),
+    enabled: !!userId,
+  })
+
+  const name = user?.profile?.first_name
+    ? [user.profile.last_name, user.profile.first_name].filter(Boolean).join(" ")
+    : user?.email ?? "..."
+
+  return (
+    <Card>
+      <CardContent className="flex items-start gap-3 pt-4">
+        <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+          <User className="h-4 w-4 text-slate-500" />
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">{label}</p>
+          <p className="text-sm font-medium text-slate-800">{name}</p>
+          {user?.profile?.position && (
+            <p className="text-xs text-slate-400">{user.profile.position}</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 export function ObjectDetail() {
   const { id } = useParams<{ id: string }>()
@@ -110,6 +139,11 @@ export function ObjectDetail() {
     done: tasks.filter((t) => t.status === "done"),
   }
 
+  const doneTasks = tasksByStatus.done.length
+  const overdueTasks = tasks.filter(
+    (t) => t.deadline && new Date(t.deadline) < new Date() && t.status !== "done"
+  ).length
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -162,7 +196,33 @@ export function ObjectDetail() {
             </CardContent>
           </Card>
         )}
+        {tasks.length > 0 && (
+          <Card>
+            <CardContent className="flex items-start gap-2 pt-4">
+              <div>
+                <p className="text-xs text-slate-500">Задачи</p>
+                <p className="text-sm">
+                  {tasks.length} всего · {doneTasks} выполнено
+                  {overdueTasks > 0 && (
+                    <span className="text-red-500"> · {overdueTasks} просрочено</span>
+                  )}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {(obj.manager_id || obj.foreman_id) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {obj.manager_id && (
+            <UserNameBadge userId={obj.manager_id} label="Менеджер проекта" />
+          )}
+          {obj.foreman_id && (
+            <UserNameBadge userId={obj.foreman_id} label="Прораб" />
+          )}
+        </div>
+      )}
 
       {obj.description && (
         <Card>
@@ -215,18 +275,17 @@ export function ObjectDetail() {
                     </h3>
                     <div className="space-y-2">
                       {statusTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className="p-3 bg-white rounded-md border text-sm shadow-sm"
-                        >
-                          <p className="font-medium text-slate-800 line-clamp-2">{task.title}</p>
-                          <Badge
-                            variant={PRIORITY_COLORS[task.priority] as any}
-                            className="mt-1 text-xs"
-                          >
-                            {PRIORITY_LABELS[task.priority]}
-                          </Badge>
-                        </div>
+                        <Link key={task.id} to={`/tasks/${task.id}`}>
+                          <div className="p-3 bg-white rounded-md border text-sm shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer">
+                            <p className="font-medium text-slate-800 line-clamp-2">{task.title}</p>
+                            <Badge
+                              variant={PRIORITY_COLORS[task.priority] as any}
+                              className="mt-1 text-xs"
+                            >
+                              {PRIORITY_LABELS[task.priority]}
+                            </Badge>
+                          </div>
+                        </Link>
                       ))}
                     </div>
                   </div>

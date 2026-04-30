@@ -12,6 +12,7 @@ from database import Base
 if TYPE_CHECKING:
     from modules.objects.models import Object
     from modules.files.models import ObjectFile
+    from modules.tasks.comment_model import TaskComment
 
 
 class TaskPriority(str, enum.Enum):
@@ -77,6 +78,9 @@ class Task(Base):
     object: Mapped["Object | None"] = relationship(back_populates="tasks", foreign_keys=[object_id])
     files: Mapped[list["ObjectFile"]] = relationship(
         back_populates="task", foreign_keys="ObjectFile.task_id"
+    )
+    comments: Mapped[list["TaskComment"]] = relationship(
+        back_populates="task", cascade="all, delete-orphan", foreign_keys="TaskComment.task_id"
     )
 
 

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { Link } from "react-router-dom"
 import { Building2, CheckSquare, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { objectsApi } from "@/api/objects"
@@ -11,14 +12,16 @@ function StatCard({
   value,
   icon: Icon,
   color,
+  to,
 }: {
   title: string
   value: number | string
   icon: React.ComponentType<{ className?: string }>
   color: string
+  to?: string
 }) {
-  return (
-    <Card>
+  const inner = (
+    <Card className={to ? "hover:shadow-md transition-shadow cursor-pointer" : undefined}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-slate-600">{title}</CardTitle>
         <Icon className={`h-5 w-5 ${color}`} />
@@ -28,6 +31,7 @@ function StatCard({
       </CardContent>
     </Card>
   )
+  return to ? <Link to={to}>{inner}</Link> : inner
 }
 
 export function Dashboard() {
@@ -43,6 +47,7 @@ export function Dashboard() {
     queryFn: tasksApi.getMyTasks,
   })
 
+  const totalObjects = objects.length
   const activeObjects = objects.filter((o) => o.status === "active").length
   const pendingTasks = tasks.filter((t) => t.status !== "done").length
   const overdueTasks = tasks.filter(
@@ -68,28 +73,39 @@ export function Dashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
+          title="Всего объектов"
+          value={totalObjects}
+          icon={Building2}
+          color="text-blue-500"
+          to="/objects"
+        />
+        <StatCard
           title="Активных объектов"
           value={activeObjects}
           icon={Building2}
-          color="text-blue-500"
+          color="text-indigo-500"
+          to="/objects"
         />
         <StatCard
           title="Моих задач в работе"
           value={pendingTasks}
           icon={CheckSquare}
           color="text-indigo-500"
+          to="/tasks"
         />
         <StatCard
           title="Выполнено задач"
           value={doneTasks}
           icon={Clock}
           color="text-green-500"
+          to="/tasks"
         />
         <StatCard
           title="Просрочено"
           value={overdueTasks}
           icon={AlertTriangle}
           color="text-red-500"
+          to="/tasks"
         />
       </div>
 
@@ -104,30 +120,32 @@ export function Dashboard() {
             ) : (
               <ul className="space-y-2">
                 {tasks.slice(0, 5).map((task) => (
-                  <li
-                    key={task.id}
-                    className="flex items-center justify-between py-1.5 border-b last:border-0"
-                  >
-                    <span className="text-sm text-slate-700 truncate max-w-[70%]">
-                      {task.title}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        task.status === "done"
-                          ? "bg-green-100 text-green-700"
-                          : task.status === "in_progress"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
+                  <li key={task.id}>
+                    <Link
+                      to={`/tasks/${task.id}`}
+                      className="flex items-center justify-between py-1.5 border-b last:border-0 hover:bg-slate-50 -mx-1 px-1 rounded transition-colors"
                     >
-                      {task.status === "done"
-                        ? "Выполнена"
-                        : task.status === "in_progress"
-                        ? "В работе"
-                        : task.status === "review"
-                        ? "Проверка"
-                        : "Новая"}
-                    </span>
+                      <span className="text-sm text-slate-700 truncate max-w-[70%]">
+                        {task.title}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          task.status === "done"
+                            ? "bg-green-100 text-green-700"
+                            : task.status === "in_progress"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {task.status === "done"
+                          ? "Выполнена"
+                          : task.status === "in_progress"
+                          ? "В работе"
+                          : task.status === "review"
+                          ? "Проверка"
+                          : "Новая"}
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -145,32 +163,34 @@ export function Dashboard() {
             ) : (
               <ul className="space-y-2">
                 {objects.slice(0, 5).map((obj) => (
-                  <li
-                    key={obj.id}
-                    className="flex items-center justify-between py-1.5 border-b last:border-0"
-                  >
-                    <span className="text-sm text-slate-700 truncate max-w-[70%]">
-                      {obj.name}
-                    </span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        obj.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : obj.status === "completed"
-                          ? "bg-blue-100 text-blue-700"
-                          : obj.status === "frozen"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
+                  <li key={obj.id}>
+                    <Link
+                      to={`/objects/${obj.id}`}
+                      className="flex items-center justify-between py-1.5 border-b last:border-0 hover:bg-slate-50 -mx-1 px-1 rounded transition-colors"
                     >
-                      {obj.status === "active"
-                        ? "Активный"
-                        : obj.status === "completed"
-                        ? "Завершён"
-                        : obj.status === "frozen"
-                        ? "Заморожен"
-                        : "Планирование"}
-                    </span>
+                      <span className="text-sm text-slate-700 truncate max-w-[70%]">
+                        {obj.name}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          obj.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : obj.status === "completed"
+                            ? "bg-blue-100 text-blue-700"
+                            : obj.status === "frozen"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {obj.status === "active"
+                          ? "Активный"
+                          : obj.status === "completed"
+                          ? "Завершён"
+                          : obj.status === "frozen"
+                          ? "Заморожен"
+                          : "Планирование"}
+                      </span>
+                    </Link>
                   </li>
                 ))}
               </ul>
