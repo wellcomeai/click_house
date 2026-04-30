@@ -28,7 +28,7 @@ async def generate_image(
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     payload = {
-        "model": "openai/gpt-5-image",
+        "model": "openai/gpt-5-image-mini",
         "messages": [
             {
                 "role": "user",
