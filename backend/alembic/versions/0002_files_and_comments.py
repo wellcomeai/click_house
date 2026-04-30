@@ -18,7 +18,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE IF NOT EXISTS filetype AS ENUM ('image', 'document')")
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE filetype AS ENUM ('image', 'document');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
 
     op.create_table(
         "object_files",
