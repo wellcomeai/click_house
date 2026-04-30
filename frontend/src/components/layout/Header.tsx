@@ -26,34 +26,17 @@ export function Header() {
       className="glass-header sticky top-0 z-10 flex items-center justify-between h-14 px-4"
       style={{ minHeight: "56px" }}
     >
-      {/* Left: burger */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="flex items-center justify-center w-8 h-8 rounded-lg text-[#8a8a8a] hover:text-[#3d3d3d] hover:bg-[#f0faf0] transition-all duration-150"
-          title={sidebarOpen ? "Скрыть меню" : "Открыть меню"}
-        >
-          <Menu className="h-4.5 w-4.5" strokeWidth={1.9} />
-        </button>
-
-        {/* Page context — breadcrumb placeholder */}
-        <div className="hidden sm:flex items-center gap-1.5">
-          <span
-            className="text-[11px] font-medium tracking-widest uppercase text-[#22b722] select-none"
-            style={{ fontFamily: "'Syne', sans-serif", letterSpacing: "0.12em" }}
-          >
-            Clickhome
-          </span>
-          <span className="text-[#e4e8ed] text-sm">·</span>
-          <span className="text-[12px] text-[#8a8a8a] font-medium">
-            Иркутск
-          </span>
-        </div>
-      </div>
+      {/* Left: burger only — no duplicate brand name */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="flex items-center justify-center w-8 h-8 rounded-lg text-[#8a8a8a] hover:text-[#3d3d3d] hover:bg-[#f0faf0] transition-all duration-150"
+        title={sidebarOpen ? "Скрыть меню" : "Открыть меню"}
+      >
+        <Menu className="h-[18px] w-[18px]" strokeWidth={1.9} />
+      </button>
 
       {/* Right: user info + logout */}
       <div className="flex items-center gap-3">
-        {/* User info */}
         <div className="hidden sm:flex flex-col items-end leading-tight">
           <span
             className="text-sm font-semibold text-[#3d3d3d]"
@@ -66,7 +49,6 @@ export function Header() {
           </span>
         </div>
 
-        {/* Avatar */}
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
           style={{ background: "linear-gradient(135deg, #22b722, #1a9a1a)" }}
@@ -76,16 +58,14 @@ export function Header() {
             "U"}
         </div>
 
-        {/* Divider */}
         <div className="w-px h-5 bg-[#e4e8ed]" />
 
-        {/* Logout */}
         <button
           onClick={handleLogout}
           className="flex items-center justify-center w-8 h-8 rounded-lg text-[#8a8a8a] hover:text-red-500 hover:bg-red-50 transition-all duration-150"
           title="Выйти"
         >
-          <LogOut className="h-3.5 w-3.5" strokeWidth={2} />
+          <LogOut className="h-[14px] w-[14px]" strokeWidth={2} />
         </button>
       </div>
     </header>
