@@ -18,8 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    filetype = sa.Enum("image", "document", name="filetype")
-    filetype.create(op.get_bind(), checkfirst=True)
+    op.execute("CREATE TYPE IF NOT EXISTS filetype AS ENUM ('image', 'document')")
 
     op.create_table(
         "object_files",
@@ -42,7 +41,7 @@ def upgrade() -> None:
             sa.ForeignKey("users.id", ondelete="SET NULL"),
             nullable=True,
         ),
-        sa.Column("file_type", sa.Enum("image", "document", name="filetype"), nullable=False),
+        sa.Column("file_type", sa.Enum("image", "document", name="filetype", create_type=False), nullable=False),
         sa.Column("original_name", sa.String(500), nullable=False),
         sa.Column("storage_key", sa.String(1000), nullable=False),
         sa.Column("public_url", sa.String(1000), nullable=False),
