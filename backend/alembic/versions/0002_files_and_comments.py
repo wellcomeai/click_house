@@ -18,13 +18,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE filetype AS ENUM ('image', 'document');
-        EXCEPTION
-            WHEN duplicate_object THEN null;
-        END $$;
-    """)
+    # Удаляем застрявший тип если есть — чистим за прошлыми неудачными попытками
+    op.execute("DROP TYPE IF EXISTS filetype")
 
     op.create_table(
         "object_files",
@@ -47,7 +42,8 @@ def upgrade() -> None:
             sa.ForeignKey("users.id", ondelete="SET NULL"),
             nullable=True,
         ),
-        sa.Column("file_type", sa.Enum("image", "document", name="filetype", create_type=False), nullable=False),
+        # String вместо PostgreSQL ENUM — надёжнее при деплоях
+        sa.Column("file_type", sa.String(20), nullable=False),
         sa.Column("original_name", sa.String(500), nullable=False),
         sa.Column("storage_key", sa.String(1000), nullable=False),
         sa.Column("public_url", sa.String(1000), nullable=False),
@@ -90,8 +86,14 @@ def upgrade() -> None:
         ),
     )
 
+    op.create_index("ix_object_files_object_id", "object_files", ["object_id"])
+    op.create_index("ix_object_files_task_id", "object_files", ["task_id"])
+    op.create_index("ix_object_comments_object_id", "object_comments", ["object_id"])
+
 
 def downgrade() -> None:
+    op.drop_index("ix_object_comments_object_id", table_name="object_comments")
+    op.drop_index("ix_object_files_task_id", table_name="object_files")
+    op.drop_index("ix_object_files_object_id", table_name="object_files")
     op.drop_table("object_comments")
     op.drop_table("object_files")
-    op.execute("DROP TYPE IF EXISTS filetype")
