@@ -77,45 +77,60 @@ export function Sidebar() {
         />
       )}
 
-      {/* Sidebar panel */}
       <aside
         className={cn(
           "flex-shrink-0 overflow-hidden sidebar-transition",
-          // Desktop: part of layout flow — width animates
           "lg:relative lg:z-auto",
-          // Mobile: fixed overlay
           "fixed top-0 left-0 h-full z-30 lg:static lg:h-auto",
           sidebarOpen ? "w-[268px]" : "w-0 lg:w-0"
         )}
       >
-        {/* Inner panel — fixed width so content doesn't squish during animation */}
         <div
           className="glass-sidebar h-full w-[268px] flex flex-col overflow-hidden"
           style={{
             boxShadow: sidebarOpen
-              ? "4px 0 24px rgba(0,0,0,0.07), 1px 0 0 rgba(228,232,237,0.5)"
+              ? "4px 0 24px rgba(0,0,0,0.07)"
               : "none",
           }}
         >
-          {/* Logo area */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-4">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <img
-                src="/logotip.jpg"
-                alt="Clickhome"
-                className="h-9 w-auto flex-shrink-0 object-contain"
-                onError={(e) => {
-                  // Fallback if image not found
-                  const target = e.target as HTMLImageElement
-                  target.style.display = "none"
-                }}
-              />
+          {/* Logo area — bigger image, clear close button */}
+          <div className="flex items-center justify-between px-4 pt-4 pb-3">
+            {/* Logo: tall enough to be readable */}
+            <img
+              src="/logotip.jpg"
+              alt="Clickhome"
+              className="object-contain"
+              style={{ height: "48px", width: "auto", maxWidth: "180px" }}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement
+                target.style.display = "none"
+                const fallback = target.nextElementSibling as HTMLElement | null
+                if (fallback) fallback.style.display = "flex"
+              }}
+            />
+            {/* Fallback text logo (hidden by default, shown if image fails) */}
+            <div
+              className="items-center gap-2"
+              style={{ display: "none" }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                style={{ background: "linear-gradient(135deg, #22b722, #1a9a1a)" }}
+              >
+                CH
+              </div>
+              <span
+                className="text-base font-bold text-[#3d3d3d]"
+                style={{ fontFamily: "'Syne', sans-serif" }}
+              >
+                Clickhome
+              </span>
             </div>
 
-            {/* Close button — arrow left */}
+            {/* Close arrow */}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-[#8a8a8a] hover:text-[#3d3d3d] hover:bg-[#f0faf0] transition-all duration-150 flex-shrink-0"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-[#8a8a8a] hover:text-[#3d3d3d] hover:bg-[#f0faf0] transition-all duration-150 flex-shrink-0 ml-2"
               title="Свернуть меню"
             >
               <ChevronLeft className="h-4 w-4" strokeWidth={2.2} />
@@ -123,7 +138,7 @@ export function Sidebar() {
           </div>
 
           {/* Divider */}
-          <div className="mx-5 h-px bg-[#e4e8ed] mb-3" />
+          <div className="mx-4 h-px bg-[#e4e8ed] mb-2" />
 
           {/* Navigation */}
           <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
@@ -132,7 +147,6 @@ export function Sidebar() {
                 key={item.path}
                 to={item.path}
                 onClick={() => {
-                  // Auto-close on mobile after navigation
                   if (window.innerWidth < 1024) setSidebarOpen(false)
                 }}
                 className={({ isActive }) =>
@@ -148,19 +162,15 @@ export function Sidebar() {
                   <>
                     <item.icon
                       className={cn(
-                        "h-4.5 w-4.5 flex-shrink-0",
+                        "flex-shrink-0",
                         isActive ? "text-[#22b722]" : "text-[#8a8a8a]"
                       )}
+                      style={{ width: "16px", height: "16px" }}
                       strokeWidth={isActive ? 2.2 : 1.8}
                     />
-                    <span
-                      className="font-['DM_Sans']"
-                      style={{ fontFamily: "'DM Sans', sans-serif" }}
-                    >
+                    <span style={{ fontFamily: "'DM Sans', sans-serif" }}>
                       {item.label}
                     </span>
-
-                    {/* Active indicator dot */}
                     {isActive && (
                       <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#22b722] flex-shrink-0" />
                     )}
@@ -178,10 +188,14 @@ export function Sidebar() {
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                 style={{ background: "linear-gradient(135deg, #22b722, #1a9a1a)" }}
               >
-                {user?.profile?.first_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || "U"}
+                {user?.profile?.first_name?.charAt(0) ||
+                  user?.email?.charAt(0)?.toUpperCase() ||
+                  "U"}
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-[#3d3d3d] truncate leading-tight">
+                <p
+                  className="text-xs font-semibold text-[#3d3d3d] truncate leading-tight"
+                >
                   {user?.profile?.first_name
                     ? `${user.profile.last_name ?? ""} ${user.profile.first_name}`.trim()
                     : user?.email ?? ""}
