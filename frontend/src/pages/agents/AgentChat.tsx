@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Send, Bot, User, Loader2, Wrench, Building2 } from "lucide-react"
+import { Send, Bot, User, Loader2, Wrench, Building2, X } from "lucide-react"
 import { agentsApi } from "@/api/agents"
 import { objectsApi } from "@/api/objects"
 import { Button } from "@/components/ui/button"
@@ -43,11 +43,15 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 
 export function AgentChat() {
   const { name: agentNameParam } = useParams<{ name?: string }>()
-  const navigate = useNavigate()
 
   const { data: agents = [], isLoading: agentsLoading } = useQuery({
     queryKey: ["agents"],
     queryFn: agentsApi.getAll,
+  })
+
+  const { data: objects = [] } = useQuery({
+    queryKey: ["objects"],
+    queryFn: objectsApi.getAll,
   })
 
   const [selectedAgent, setSelectedAgent] = useState<string>(agentNameParam ?? "")
@@ -58,11 +62,6 @@ export function AgentChat() {
   const [currentTool, setCurrentTool] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const { data: objects = [] } = useQuery({
-    queryKey: ["objects"],
-    queryFn: objectsApi.getAll,
-  })
-
   useEffect(() => {
     if (!selectedAgent && agents.length > 0) {
       setSelectedAgent(agents[0].name)
@@ -72,6 +71,8 @@ export function AgentChat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const selectedObject = objects.find((o) => o.id === selectedObjectId)
 
   const handleSend = async () => {
     const text = input.trim()
@@ -137,11 +138,13 @@ export function AgentChat() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
+
+      {/* Заголовок */}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-slate-900">AI Агенты</h1>
       </div>
 
-      {/* Agent selector */}
+      {/* Выбор агента */}
       <div className="flex gap-2 mb-4 flex-wrap">
         {agentsLoading ? (
           <p className="text-slate-400 text-sm">Загрузка агентов...</p>
@@ -154,6 +157,7 @@ export function AgentChat() {
               onClick={() => {
                 setSelectedAgent(agent.name)
                 setMessages([])
+                // объект НЕ сбрасываем — удобно переключаться между агентами
               }}
             >
               <Bot className="h-3.5 w-3.5 mr-1.5" />
@@ -167,42 +171,17 @@ export function AgentChat() {
         <p className="text-sm text-slate-500 mb-3">{agentInfo.description}</p>
       )}
 
-      {/* Выбор объекта */}
-      <div className="flex items-center gap-3 mb-3">
-        <Building2 className="h-4 w-4 text-slate-400 flex-shrink-0" />
-        <select
-          value={selectedObjectId ?? ""}
-          onChange={(e) => setSelectedObjectId(e.target.value || null)}
-          className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-700 max-w-sm w-full"
-        >
-          <option value="">— Объект не выбран —</option>
-          {objects.map((obj) => (
-            <option key={obj.id} value={obj.id}>
-              {obj.name}
-            </option>
-          ))}
-        </select>
-
-        {selectedObjectId && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 rounded-full text-xs text-green-700 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            {objects.find((o) => o.id === selectedObjectId)?.name}
-            <button
-              onClick={() => setSelectedObjectId(null)}
-              className="ml-1 text-green-500 hover:text-green-700"
-            >
-              ×
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Messages */}
+      {/* Область сообщений */}
       <Card className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-slate-400">
             <Bot className="h-12 w-12 mb-3 opacity-30" />
             <p className="text-sm">Начните диалог с агентом</p>
+            {objects.length > 0 && (
+              <p className="text-xs mt-1 text-slate-300">
+                Выберите объект внизу для анализа конкретного объекта
+              </p>
+            )}
           </div>
         )}
         {messages.map((msg, i) => (
@@ -217,26 +196,74 @@ export function AgentChat() {
         <div ref={bottomRef} />
       </Card>
 
-      {/* Input */}
-      <div className="flex gap-2 mt-3">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder="Напишите сообщение агенту..."
-          disabled={isStreaming || !selectedAgent}
-        />
-        <Button
-          onClick={handleSend}
-          disabled={!input.trim() || isStreaming || !selectedAgent}
-          size="icon"
-        >
-          {isStreaming ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
+      {/* Нижняя панель */}
+      <div className="mt-3 space-y-2">
+
+        {/* Строка выбора объекта */}
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-slate-400 flex-shrink-0" />
+
+          <select
+            value={selectedObjectId ?? ""}
+            onChange={(e) => setSelectedObjectId(e.target.value || null)}
+            className="flex-1 h-8 rounded-md border border-input bg-white px-2 py-1
+                       text-xs text-slate-600 focus-visible:outline-none
+                       focus-visible:ring-1 focus-visible:ring-ring max-w-xs"
+          >
+            <option value="">— Объект не выбран —</option>
+            {objects.map((obj) => (
+              <option key={obj.id} value={obj.id}>
+                {obj.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Бейдж выбранного объекта с кнопкой сброса */}
+          {selectedObject && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1
+                            bg-green-50 border border-green-200
+                            rounded-full text-xs text-green-700 font-medium
+                            max-w-[280px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+              <span className="truncate">{selectedObject.name}</span>
+              <button
+                onClick={() => setSelectedObjectId(null)}
+                className="ml-0.5 text-green-400 hover:text-green-700 flex-shrink-0
+                           transition-colors"
+                title="Снять выбор объекта"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
           )}
-        </Button>
+        </div>
+
+        {/* Строка ввода сообщения */}
+        <div className="flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            placeholder={
+              selectedObject
+                ? `Спросить про "${selectedObject.name}"...`
+                : "Напишите сообщение агенту..."
+            }
+            disabled={isStreaming || !selectedAgent}
+          />
+          <Button
+            onClick={handleSend}
+            disabled={!input.trim() || isStreaming || !selectedAgent}
+            size="icon"
+          >
+            {isStreaming ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+
       </div>
     </div>
   )
