@@ -69,6 +69,14 @@ export interface Task {
 
 export type FileType = "image" | "document"
 
+export interface UploaderInfo {
+  id: string
+  email: string
+  full_name: string | null
+  position: string | null
+  phone: string | null
+}
+
 export interface ObjectFile {
   id: string
   object_id: string
@@ -78,6 +86,8 @@ export interface ObjectFile {
   original_name: string
   public_url: string
   size_bytes: number
+  caption: string | null
+  uploader: UploaderInfo | null
   created_at: string
 }
 

@@ -5,9 +5,10 @@ export const filesApi = {
   getByObject: (objectId: string) =>
     apiClient.get<ObjectFile[]>(`/objects/${objectId}/files`).then((r) => r.data),
 
-  uploadToObject: (objectId: string, file: File) => {
+  uploadToObject: (objectId: string, file: File, caption?: string) => {
     const form = new FormData()
     form.append("file", file)
+    if (caption?.trim()) form.append("caption", caption.trim())
     return apiClient
       .post<ObjectFile>(`/objects/${objectId}/files`, form, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -21,9 +22,10 @@ export const filesApi = {
   getByTask: (taskId: string) =>
     apiClient.get<ObjectFile[]>(`/tasks/${taskId}/files`).then((r) => r.data),
 
-  uploadToTask: (taskId: string, file: File) => {
+  uploadToTask: (taskId: string, file: File, caption?: string) => {
     const form = new FormData()
     form.append("file", file)
+    if (caption?.trim()) form.append("caption", caption.trim())
     return apiClient
       .post<ObjectFile>(`/tasks/${taskId}/files`, form, {
         headers: { "Content-Type": "multipart/form-data" },

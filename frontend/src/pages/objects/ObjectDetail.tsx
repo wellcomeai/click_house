@@ -1,21 +1,26 @@
 import { useState } from "react"
 import { useParams, Link } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, MapPin, Calendar, DollarSign } from "lucide-react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { ArrowLeft, MapPin, Calendar, DollarSign, Plus, X } from "lucide-react"
 import { objectsApi } from "@/api/objects"
 import { tasksApi } from "@/api/tasks"
+import { usersApi } from "@/api/users"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ObjectFiles } from "@/components/objects/ObjectFiles"
 import { ObjectComments } from "@/components/objects/ObjectComments"
+import { useAuthStore } from "@/store/authStore"
 import {
   STATUS_LABELS,
   TASK_STATUS_LABELS,
   PRIORITY_LABELS,
+  CATEGORY_LABELS,
+  ROLE_LABELS,
   type ObjectStatus,
   type TaskStatus,
   type TaskPriority,
+  type TaskCategory,
 } from "@/types"
 
 const PRIORITY_COLORS: Record<TaskPriority, string> = {
@@ -36,6 +41,18 @@ const TABS: { key: Tab; label: string }[] = [
 export function ObjectDetail() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>("tasks")
+  const [showCreateTask, setShowCreateTask] = useState(false)
+  const [taskForm, setTaskForm] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as TaskPriority,
+    category: "" as TaskCategory | "",
+    assignee_id: "",
+    deadline: "",
+  })
+
+  const { user: currentUser } = useAuthStore()
+  const queryClient = useQueryClient()
 
   const { data: obj, isLoading } = useQuery({
     queryKey: ["object", id],
@@ -49,8 +66,42 @@ export function ObjectDetail() {
     enabled: !!id,
   })
 
+  const { data: users = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: usersApi.getAll,
+  })
+
+  const createTaskMutation = useMutation({
+    mutationFn: () =>
+      tasksApi.create({
+        title: taskForm.title.trim(),
+        description: taskForm.description.trim() || undefined,
+        priority: taskForm.priority,
+        category: (taskForm.category as TaskCategory) || undefined,
+        object_id: id,
+        assignee_id: taskForm.assignee_id || undefined,
+        deadline: taskForm.deadline || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks-by-object", id] })
+      setShowCreateTask(false)
+      setTaskForm({
+        title: "",
+        description: "",
+        priority: "medium",
+        category: "",
+        assignee_id: "",
+        deadline: "",
+      })
+    },
+  })
+
   if (isLoading) return <div className="text-slate-400">Загрузка...</div>
   if (!obj) return <div className="text-red-500">Объект не найден</div>
+
+  const canCreateTask =
+    currentUser?.role === "admin" ||
+    (currentUser?.role === "foreman" && obj.foreman_id === currentUser?.id)
 
   const tasksByStatus = {
     new: tasks.filter((t) => t.status === "new"),
@@ -144,9 +195,17 @@ export function ObjectDetail() {
 
         {activeTab === "tasks" && (
           <div>
-            <h2 className="text-base font-semibold text-slate-900 mb-3">
-              Задачи объекта ({tasks.length})
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-slate-900">
+                Задачи объекта ({tasks.length})
+              </h2>
+              {canCreateTask && (
+                <Button size="sm" onClick={() => setShowCreateTask(true)}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Создать задачу
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {(Object.entries(tasksByStatus) as [TaskStatus, typeof tasks][]).map(
                 ([status, statusTasks]) => (
@@ -181,6 +240,145 @@ export function ObjectDetail() {
 
         {activeTab === "journal" && <ObjectComments objectId={id!} />}
       </div>
+
+      {/* Create task modal */}
+      {showCreateTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
+
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-[#3d3d3d]">Новая задача</h2>
+                <p className="text-sm text-slate-400">{obj.name}</p>
+              </div>
+              <button
+                onClick={() => setShowCreateTask(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Title */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Название *</label>
+              <input
+                value={taskForm.title}
+                onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Введите название задачи"
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Описание</label>
+              <textarea
+                value={taskForm.description}
+                onChange={(e) => setTaskForm((f) => ({ ...f, description: e.target.value }))}
+                rows={2}
+                placeholder="Описание задачи..."
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+              />
+            </div>
+
+            {/* Priority + Category */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Приоритет</label>
+                <select
+                  value={taskForm.priority}
+                  onChange={(e) =>
+                    setTaskForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Категория</label>
+                <select
+                  value={taskForm.category}
+                  onChange={(e) =>
+                    setTaskForm((f) => ({
+                      ...f,
+                      category: e.target.value as TaskCategory | "",
+                    }))
+                  }
+                  className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">— не указана —</option>
+                  {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Assignee */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Ответственный</label>
+              <select
+                value={taskForm.assignee_id}
+                onChange={(e) =>
+                  setTaskForm((f) => ({ ...f, assignee_id: e.target.value }))
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">— не назначен —</option>
+                {users.map((u) => {
+                  const name = u.profile?.first_name
+                    ? `${u.profile.last_name ?? ""} ${u.profile.first_name}`.trim()
+                    : u.email
+                  return (
+                    <option key={u.id} value={u.id}>
+                      {name} ({ROLE_LABELS[u.role]}) — {u.email}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            {/* Deadline */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">Срок выполнения</label>
+              <input
+                type="datetime-local"
+                value={taskForm.deadline}
+                onChange={(e) => setTaskForm((f) => ({ ...f, deadline: e.target.value }))}
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+
+            {/* Error */}
+            {createTaskMutation.isError && (
+              <p className="text-sm text-red-500">Ошибка при создании задачи. Попробуйте снова.</p>
+            )}
+
+            {/* Buttons */}
+            <div className="flex gap-3 pt-1">
+              <Button
+                onClick={() => createTaskMutation.mutate()}
+                disabled={!taskForm.title.trim() || createTaskMutation.isPending}
+              >
+                {createTaskMutation.isPending ? "Создание..." : "Создать задачу"}
+              </Button>
+              <Button variant="outline" onClick={() => setShowCreateTask(false)}>
+                Отмена
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   )
 }
