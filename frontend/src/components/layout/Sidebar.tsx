@@ -100,7 +100,7 @@ export function Sidebar() {
               src="/logotip.jpg"
               alt="Clickhome"
               className="object-contain"
-              style={{ height: "48px", width: "auto", maxWidth: "180px" }}
+              style={{ height: "96px", width: "auto", maxWidth: "180px" }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement
                 target.style.display = "none"
