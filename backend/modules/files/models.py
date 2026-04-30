@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, DateTime, Enum as SAEnum, ForeignKey, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,10 +35,8 @@ class ObjectFile(Base):
     uploaded_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    file_type: Mapped[FileType] = mapped_column(
-        SAEnum(FileType, name="filetype", create_type=False),  # ← fix
-        nullable=False,
-    )
+    # String вместо SAEnum — никаких проблем с PostgreSQL типами при деплоях
+    file_type: Mapped[str] = mapped_column(String(20), nullable=False)
     original_name: Mapped[str] = mapped_column(String(500), nullable=False)
     storage_key: Mapped[str] = mapped_column(String(1000), nullable=False)
     public_url: Mapped[str] = mapped_column(String(1000), nullable=False)
