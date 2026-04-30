@@ -33,11 +33,23 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class ProfileData(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    middle_name: str | None = None
+    position: str | None = None
+    phone: str | None = None
+    avatar_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class UserMeResponse(BaseModel):
     id: uuid.UUID
     email: str
     role: str
     is_active: bool
     created_at: datetime
+    profile: ProfileData | None = None
 
     model_config = {"from_attributes": True}
