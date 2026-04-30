@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, MapPin, Calendar, DollarSign } from "lucide-react"
@@ -6,6 +7,8 @@ import { tasksApi } from "@/api/tasks"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { ObjectFiles } from "@/components/objects/ObjectFiles"
+import { ObjectComments } from "@/components/objects/ObjectComments"
 import {
   STATUS_LABELS,
   TASK_STATUS_LABELS,
@@ -22,8 +25,17 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
   critical: "destructive",
 } as const
 
+type Tab = "tasks" | "files" | "journal"
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "tasks", label: "Задачи" },
+  { key: "files", label: "Файлы и фото" },
+  { key: "journal", label: "Журнал" },
+]
+
 export function ObjectDetail() {
   const { id } = useParams<{ id: string }>()
+  const [activeTab, setActiveTab] = useState<Tab>("tasks")
 
   const { data: obj, isLoading } = useQuery({
     queryKey: ["object", id],
@@ -57,7 +69,7 @@ export function ObjectDetail() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{obj.name}</h1>
-          <Badge>{STATUS_LABELS[obj.status]}</Badge>
+          <Badge>{STATUS_LABELS[obj.status as ObjectStatus]}</Badge>
         </div>
       </div>
 
@@ -112,37 +124,62 @@ export function ObjectDetail() {
         </Card>
       )}
 
+      {/* Tabs */}
       <div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-3">
-          Задачи объекта ({tasks.length})
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {(Object.entries(tasksByStatus) as [TaskStatus, typeof tasks][]).map(
-            ([status, statusTasks]) => (
-              <div key={status}>
-                <h3 className="text-sm font-medium text-slate-500 mb-2">
-                  {TASK_STATUS_LABELS[status]} ({statusTasks.length})
-                </h3>
-                <div className="space-y-2">
-                  {statusTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="p-3 bg-white rounded-md border text-sm shadow-sm"
-                    >
-                      <p className="font-medium text-slate-800 line-clamp-2">{task.title}</p>
-                      <Badge
-                        variant={PRIORITY_COLORS[task.priority] as any}
-                        className="mt-1 text-xs"
-                      >
-                        {PRIORITY_LABELS[task.priority]}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          )}
+        <div className="flex border-b border-slate-200 mb-4">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                activeTab === tab.key
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
+
+        {activeTab === "tasks" && (
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 mb-3">
+              Задачи объекта ({tasks.length})
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(Object.entries(tasksByStatus) as [TaskStatus, typeof tasks][]).map(
+                ([status, statusTasks]) => (
+                  <div key={status}>
+                    <h3 className="text-sm font-medium text-slate-500 mb-2">
+                      {TASK_STATUS_LABELS[status]} ({statusTasks.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {statusTasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className="p-3 bg-white rounded-md border text-sm shadow-sm"
+                        >
+                          <p className="font-medium text-slate-800 line-clamp-2">{task.title}</p>
+                          <Badge
+                            variant={PRIORITY_COLORS[task.priority] as any}
+                            className="mt-1 text-xs"
+                          >
+                            {PRIORITY_LABELS[task.priority]}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "files" && <ObjectFiles objectId={id!} />}
+
+        {activeTab === "journal" && <ObjectComments objectId={id!} />}
       </div>
     </div>
   )

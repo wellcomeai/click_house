@@ -12,6 +12,8 @@ from database import Base
 
 if TYPE_CHECKING:
     from modules.tasks.models import Task
+    from modules.files.models import ObjectFile
+    from modules.comments.models import ObjectComment
 
 
 class ObjectType(str, enum.Enum):
@@ -67,3 +69,9 @@ class Object(Base):
     )
 
     tasks: Mapped[list["Task"]] = relationship(back_populates="object", cascade="all, delete-orphan")
+    files: Mapped[list["ObjectFile"]] = relationship(
+        back_populates="object", cascade="all, delete-orphan", foreign_keys="ObjectFile.object_id"
+    )
+    comments: Mapped[list["ObjectComment"]] = relationship(
+        back_populates="object", cascade="all, delete-orphan", foreign_keys="ObjectComment.object_id"
+    )

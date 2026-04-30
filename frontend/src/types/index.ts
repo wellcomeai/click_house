@@ -67,6 +67,30 @@ export interface Task {
   checklist: ChecklistItem[]
 }
 
+export type FileType = "image" | "document"
+
+export interface ObjectFile {
+  id: string
+  object_id: string
+  task_id: string | null
+  uploaded_by: string | null
+  file_type: FileType
+  original_name: string
+  public_url: string
+  size_bytes: number
+  created_at: string
+}
+
+export interface ObjectComment {
+  id: string
+  object_id: string
+  author_id: string | null
+  author_name: string | null
+  text: string
+  created_at: string
+  updated_at: string
+}
+
 export interface TokenResponse {
   access_token: string
   refresh_token: string

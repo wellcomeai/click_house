@@ -11,6 +11,7 @@ from database import Base
 
 if TYPE_CHECKING:
     from modules.objects.models import Object
+    from modules.files.models import ObjectFile
 
 
 class TaskPriority(str, enum.Enum):
@@ -74,6 +75,9 @@ class Task(Base):
         back_populates="task", cascade="all, delete-orphan", order_by="TaskChecklist.order_index"
     )
     object: Mapped["Object | None"] = relationship(back_populates="tasks", foreign_keys=[object_id])
+    files: Mapped[list["ObjectFile"]] = relationship(
+        back_populates="task", foreign_keys="ObjectFile.task_id"
+    )
 
 
 class TaskChecklist(Base):

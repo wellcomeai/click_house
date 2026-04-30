@@ -10,6 +10,7 @@ import { Register } from "@/pages/auth/Register"
 import { Dashboard } from "@/pages/dashboard/Dashboard"
 import { ObjectsList } from "@/pages/objects/ObjectsList"
 import { ObjectDetail } from "@/pages/objects/ObjectDetail"
+import { ObjectCreate } from "@/pages/objects/ObjectCreate"
 import { MyTasks } from "@/pages/tasks/MyTasks"
 import { Profile } from "@/pages/profile/Profile"
 import { AgentChat } from "@/pages/agents/AgentChat"
@@ -39,6 +40,7 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/objects" element={<ObjectsList />} />
+              <Route path="/objects/new" element={<ObjectCreate />} />
               <Route path="/objects/:id" element={<ObjectDetail />} />
               <Route path="/tasks" element={<MyTasks />} />
               <Route path="/profile" element={<Profile />} />

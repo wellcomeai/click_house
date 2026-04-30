@@ -43,12 +43,16 @@ from modules.users.router import router as users_router
 from modules.objects.router import router as objects_router
 from modules.tasks.router import router as tasks_router
 from modules.ai_gateway.router import router as ai_router
+from modules.files.router import router as files_router
+from modules.comments.router import router as comments_router
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(users_router, prefix="/users", tags=["users"])
 app.include_router(objects_router, prefix="/objects", tags=["objects"])
 app.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
 app.include_router(ai_router, prefix="/agents", tags=["agents"])
+app.include_router(files_router, tags=["files"])
+app.include_router(comments_router, tags=["comments"])
 
 
 @app.get("/health", tags=["system"])

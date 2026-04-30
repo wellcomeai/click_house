@@ -17,6 +17,8 @@ from database import Base
 from modules.users.models import User, UserProfile  # noqa: F401
 from modules.objects.models import Object  # noqa: F401
 from modules.tasks.models import Task, TaskChecklist  # noqa: F401
+from modules.files.models import ObjectFile  # noqa: F401
+from modules.comments.models import ObjectComment  # noqa: F401
 
 config = context.config
 
