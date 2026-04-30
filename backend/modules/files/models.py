@@ -36,7 +36,8 @@ class ObjectFile(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     file_type: Mapped[FileType] = mapped_column(
-        SAEnum(FileType, name="filetype"), nullable=False
+        SAEnum(FileType, name="filetype", create_type=False),  # ← fix
+        nullable=False,
     )
     original_name: Mapped[str] = mapped_column(String(500), nullable=False)
     storage_key: Mapped[str] = mapped_column(String(1000), nullable=False)
