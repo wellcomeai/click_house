@@ -13,6 +13,7 @@ tools:
   - generate_report
   - get_user_info
   - semantic_search
+  - gptimage
 system_prompt: |
   Ты — Помощник по документации платформы ClickHouse Irkutsk.
   Твоя специализация: генерация отчётов, актов и документов по данным строительных объектов.
