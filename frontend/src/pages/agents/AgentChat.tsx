@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Send, Bot, User, Loader2, Wrench } from "lucide-react"
+import { Send, Bot, User, Loader2, Wrench, Building2 } from "lucide-react"
 import { agentsApi } from "@/api/agents"
+import { objectsApi } from "@/api/objects"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -50,11 +51,17 @@ export function AgentChat() {
   })
 
   const [selectedAgent, setSelectedAgent] = useState<string>(agentNameParam ?? "")
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
   const [currentTool, setCurrentTool] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  const { data: objects = [] } = useQuery({
+    queryKey: ["objects"],
+    queryFn: objectsApi.getAll,
+  })
 
   useEffect(() => {
     if (!selectedAgent && agents.length > 0) {
@@ -84,6 +91,7 @@ export function AgentChat() {
       selectedAgent,
       text,
       history,
+      selectedObjectId,
       (type, content) => {
         if (type === "text") {
           setMessages((prev) => {
@@ -158,6 +166,36 @@ export function AgentChat() {
       {agentInfo && (
         <p className="text-sm text-slate-500 mb-3">{agentInfo.description}</p>
       )}
+
+      {/* Выбор объекта */}
+      <div className="flex items-center gap-3 mb-3">
+        <Building2 className="h-4 w-4 text-slate-400 flex-shrink-0" />
+        <select
+          value={selectedObjectId ?? ""}
+          onChange={(e) => setSelectedObjectId(e.target.value || null)}
+          className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-slate-700 max-w-sm w-full"
+        >
+          <option value="">— Объект не выбран —</option>
+          {objects.map((obj) => (
+            <option key={obj.id} value={obj.id}>
+              {obj.name}
+            </option>
+          ))}
+        </select>
+
+        {selectedObjectId && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 border border-green-200 rounded-full text-xs text-green-700 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            {objects.find((o) => o.id === selectedObjectId)?.name}
+            <button
+              onClick={() => setSelectedObjectId(null)}
+              className="ml-1 text-green-500 hover:text-green-700"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Messages */}
       <Card className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">

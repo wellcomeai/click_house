@@ -11,6 +11,7 @@ export const agentsApi = {
     agentName: string,
     message: string,
     history: Array<{ role: string; content: string }>,
+    objectId: string | null,
     onChunk: (type: string, content: string) => void,
     onDone: () => void,
     onError: (error: string) => void
@@ -22,7 +23,7 @@ export const agentsApi = {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify({ message, history, object_id: objectId }),
     })
 
     if (!response.ok) {

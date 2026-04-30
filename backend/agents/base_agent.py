@@ -29,8 +29,14 @@ class BaseAgent:
         message: str,
         context: dict,
         history: list[dict] | None = None,
+        context_message: str | None = None,
     ) -> AsyncGenerator[str, None]:
         messages: list[dict] = [{"role": "system", "content": self.system_prompt}]
+
+        if context_message:
+            messages.append({"role": "user", "content": context_message})
+            messages.append({"role": "assistant", "content": "Понял, учту данные по объекту при ответе."})
+
         if history:
             messages.extend(history)
         messages.append({"role": "user", "content": message})
