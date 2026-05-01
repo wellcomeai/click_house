@@ -63,6 +63,8 @@ export const agentsApi = {
             onChunk("text", parsed.content)
           } else if (parsed.type === "tool_call" && parsed.tool) {
             onChunk("tool_call", parsed.tool)
+          } else if (parsed.type === "image" && parsed.url) {
+            onChunk("image", parsed.url)
           } else if (parsed.type === "error") {
             onError(parsed.content)
             return

@@ -162,6 +162,9 @@ class BaseAgent:
 
                 result = await tool_registry.execute(tool_name, tool_args, context)
 
+                if isinstance(result, dict) and result.get("image_url"):
+                    yield f"data: {json.dumps({'type': 'image', 'url': result['image_url']})}\n\n"
+
                 messages.append(
                     {
                         "role": "tool",

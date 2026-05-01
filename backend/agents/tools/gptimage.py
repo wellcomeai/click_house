@@ -1,88 +1,86 @@
-import os
+import asyncio
 import httpx
 from agents.tools.decorators import tool
+from config import settings
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+_KIE_BASE = "https://api.kie.ai/api/v1"
+_POLL_INTERVAL = 3
+_TIMEOUT = 120
 
 
 @tool
 async def generate_image(
     prompt: str,
-    size: str = "1024x1024",
-    style: str = "realistic",
+    aspect_ratio: str = "1:1",
+    resolution: str = "1K",
     db=None,
     current_user=None,
 ) -> dict:
     """
-    Генерирует изображение по текстовому описанию через OpenRouter (gpt-5-image).
+    Генерирует изображение по текстовому описанию через kie.ai.
 
     Args:
         prompt: описание изображения на любом языке
-        size: размер (1024x1024, 1024x1792, 1792x1024)
-        style: стиль (realistic, cinematic, blueprint, UI dashboard)
+        aspect_ratio: соотношение сторон (auto, 1:1, 9:16, 16:9, 4:3, 3:4)
+        resolution: разрешение (1K, 2K, 4K)
 
     Returns:
-        dict с полем images (список base64 data URL) или error
+        dict с полем image_url или error
     """
-
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    payload = {
-        "model": "openai/gpt-5-image-mini",
-        "messages": [
-            {
-                "role": "user",
-                "content": f"{prompt}, style: {style}"
-            }
-        ],
-        "modalities": ["image", "text"],
-    }
-
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {settings.kie_api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://clickhouse-irkutsk.onrender.com",
-        "X-Title": "ClickHouse Irkutsk",
     }
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            data = response.json()
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            create_resp = await client.post(
+                f"{_KIE_BASE}/jobs/createTask",
+                headers=headers,
+                json={
+                    "prompt": prompt,
+                    "aspect_ratio": aspect_ratio,
+                    "resolution": resolution,
+                },
+            )
+            create_resp.raise_for_status()
+            create_data = create_resp.json()
 
-        message = data["choices"][0]["message"]
+        task_id = create_data.get("data", {}).get("taskId") or create_data.get("taskId")
+        if not task_id:
+            return {"error": f"Не удалось получить taskId: {create_data}"}
 
-        # Основной формат — message.images (массив объектов с image_url.url)
-        if "images" in message and message["images"]:
-            return {
-                "images": [img["image_url"]["url"] for img in message["images"]]
-            }
+        elapsed = 0
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            while elapsed < _TIMEOUT:
+                await asyncio.sleep(_POLL_INTERVAL)
+                elapsed += _POLL_INTERVAL
 
-        # Запасной вариант — content как список блоков
-        if "content" in message and isinstance(message["content"], list):
-            images = []
-            text_parts = []
-            for block in message["content"]:
-                if isinstance(block, dict):
-                    if block.get("type") == "image_url":
-                        images.append(block["image_url"]["url"])
-                    elif block.get("type") == "text":
-                        text_parts.append(block["text"])
-            if images:
-                return {"images": images}
-            if text_parts:
-                return {"text": " ".join(text_parts)}
+                poll_resp = await client.get(
+                    f"{_KIE_BASE}/jobs/getTaskDetail",
+                    headers=headers,
+                    params={"taskId": task_id},
+                )
+                poll_resp.raise_for_status()
+                poll_data = poll_resp.json()
 
-        # Если content строка
-        if "content" in message and isinstance(message["content"], str):
-            return {"text": message["content"]}
+                task = poll_data.get("data", poll_data)
+                status = task.get("status", "")
 
-        return {"error": "Изображение не получено", "raw": str(message)}
+                if status == "completed":
+                    image_url = task.get("image_url") or task.get("imageUrl")
+                    if image_url:
+                        return {"image_url": image_url}
+                    return {"error": f"Статус completed, но image_url не найден: {task}"}
+
+                if status in ("failed", "error"):
+                    return {"error": f"Задача завершилась с ошибкой: {task}"}
+
+        return {"error": "Превышено время ожидания генерации изображения (120 сек)"}
 
     except httpx.HTTPStatusError as e:
         return {"error": f"HTTP ошибка {e.response.status_code}: {e.response.text}"}
     except httpx.TimeoutException:
-        return {"error": "Превышено время ожидания генерации изображения (120 сек)"}
+        return {"error": "Превышено время ожидания запроса к kie.ai"}
     except Exception as e:
         return {"error": f"Ошибка: {str(e)}"}

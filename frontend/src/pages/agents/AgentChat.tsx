@@ -24,18 +24,27 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
           <Bot className="h-4 w-4 text-white" />
         )}
       </div>
-      <div
-        className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
-          isUser
-            ? "bg-blue-600 text-white"
-            : "bg-white border text-slate-800 shadow-sm"
-        }`}
-      >
-        {msg.isStreaming && !msg.content ? (
-          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-        ) : (
-          <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+      <div className="max-w-[80%] flex flex-col gap-2">
+        {(msg.content || (msg.isStreaming && !msg.images?.length)) && (
+          <div
+            className={`rounded-xl px-4 py-3 text-sm leading-relaxed ${
+              isUser
+                ? "bg-blue-600 text-white"
+                : "bg-white border text-slate-800 shadow-sm"
+            }`}
+          >
+            {msg.isStreaming && !msg.content ? (
+              <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+            ) : (
+              <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+            )}
+          </div>
         )}
+        {msg.images?.map((url, i) => (
+          <div key={i} className="rounded-xl overflow-hidden border shadow-sm">
+            <img src={url} alt="" style={{ maxHeight: 480, display: "block", width: "100%" }} />
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -109,6 +118,18 @@ export function AgentChat() {
           })
         } else if (type === "tool_call") {
           setCurrentTool(content)
+        } else if (type === "image") {
+          setMessages((prev) => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last.role === "assistant") {
+              updated[updated.length - 1] = {
+                ...last,
+                images: [...(last.images ?? []), content],
+              }
+            }
+            return updated
+          })
         }
       },
       () => {
