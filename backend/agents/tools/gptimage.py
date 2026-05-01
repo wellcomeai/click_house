@@ -1,11 +1,15 @@
 import asyncio
-import httpx
-from agents.tools.decorators import tool
-from config import settings
+import logging
 
-_KIE_BASE = "https://api.kie.ai/api/v1"
-_POLL_INTERVAL = 3
-_TIMEOUT = 120
+import httpx
+
+from agents.tools.decorators import tool
+
+logger = logging.getLogger(__name__)
+
+KIE_BASE_URL = "https://api.kie.ai/api/v1"
+WAIT_INTERVAL = 2.0
+WAIT_TIMEOUT  = 120.0
 
 
 @tool
@@ -17,70 +21,73 @@ async def generate_image(
     current_user=None,
 ) -> dict:
     """
-    Генерирует изображение по текстовому описанию через kie.ai.
+    Генерирует изображение по текстовому описанию через kie.ai (gpt-image-2).
 
     Args:
-        prompt: описание изображения на любом языке
-        aspect_ratio: соотношение сторон (auto, 1:1, 9:16, 16:9, 4:3, 3:4)
-        resolution: разрешение (1K, 2K, 4K)
+        prompt: описание изображения (до 20 000 символов)
+        aspect_ratio: соотношение сторон — auto | 1:1 | 9:16 | 16:9 | 4:3 | 3:4
+        resolution: разрешение — 1K | 2K | 4K
 
     Returns:
         dict с полем image_url или error
     """
+    from config import settings
+    from modules.image_callback.router import get_result, clear_result
+
+    api_key = settings.kie_api_key
+    if not api_key:
+        return {"error": "KIE_API_KEY не настроен"}
+
+    callback_url = f"{settings.public_url}/api/image-callback"
+
     headers = {
-        "Authorization": f"Bearer {settings.kie_api_key}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "gpt-image-2-text-to-image",
+        "callBackUrl": callback_url,
+        "input": {
+            "prompt": prompt,
+            "aspect_ratio": aspect_ratio,
+            "resolution": resolution,
+        },
     }
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            create_resp = await client.post(
-                f"{_KIE_BASE}/jobs/createTask",
+            resp = await client.post(
+                f"{KIE_BASE_URL}/jobs/createTask",
+                json=payload,
                 headers=headers,
-                json={
-                    "prompt": prompt,
-                    "aspect_ratio": aspect_ratio,
-                    "resolution": resolution,
-                },
             )
-            create_resp.raise_for_status()
-            create_data = create_resp.json()
+            resp.raise_for_status()
+            data = resp.json()
+            logger.info("kie.ai createTask response: %s", data)
 
-        task_id = create_data.get("data", {}).get("taskId") or create_data.get("taskId")
-        if not task_id:
-            return {"error": f"Не удалось получить taskId: {create_data}"}
+            if data.get("code") != 200:
+                return {"error": f"Ошибка создания задачи: {data.get('msg', 'unknown')}"}
 
-        elapsed = 0
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            while elapsed < _TIMEOUT:
-                await asyncio.sleep(_POLL_INTERVAL)
-                elapsed += _POLL_INTERVAL
+            task_id = data["data"]["taskId"]
+            logger.info("kie.ai task created: %s, waiting for callback...", task_id)
 
-                poll_resp = await client.get(
-                    f"{_KIE_BASE}/jobs/getTaskDetail",
-                    headers=headers,
-                    params={"taskId": task_id},
-                )
-                poll_resp.raise_for_status()
-                poll_data = poll_resp.json()
+        # Ждём пока callback роутер положит результат в dict
+        elapsed = 0.0
+        while elapsed < WAIT_TIMEOUT:
+            await asyncio.sleep(WAIT_INTERVAL)
+            elapsed += WAIT_INTERVAL
 
-                task = poll_data.get("data", poll_data)
-                status = task.get("status", "")
+            result = get_result(task_id)
+            if result is not None:
+                clear_result(task_id)
+                logger.info("kie.ai result received for %s: %s", task_id, result)
+                return result
 
-                if status == "completed":
-                    image_url = task.get("image_url") or task.get("imageUrl")
-                    if image_url:
-                        return {"image_url": image_url}
-                    return {"error": f"Статус completed, но image_url не найден: {task}"}
-
-                if status in ("failed", "error"):
-                    return {"error": f"Задача завершилась с ошибкой: {task}"}
-
-        return {"error": "Превышено время ожидания генерации изображения (120 сек)"}
+        return {"error": f"Таймаут: callback не пришёл за {WAIT_TIMEOUT}с"}
 
     except httpx.HTTPStatusError as e:
-        return {"error": f"HTTP ошибка {e.response.status_code}: {e.response.text}"}
-    except httpx.TimeoutException:
-        return {"error": "Превышено время ожидания запроса к kie.ai"}
+        return {"error": f"HTTP {e.response.status_code}: {e.response.text[:200]}"}
     except Exception as e:
-        return {"error": f"Ошибка: {str(e)}"}
+        logger.exception("generate_image error: %s", e)
+        return {"error": str(e)}

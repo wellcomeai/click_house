@@ -46,6 +46,7 @@ from modules.ai_gateway.router import router as ai_router
 from modules.files.router import router as files_router
 from modules.comments.router import router as comments_router
 from modules.tasks.comments_router import router as task_comments_router
+from modules.image_callback.router import router as image_callback_router
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(users_router, prefix="/users", tags=["users"])
@@ -55,6 +56,7 @@ app.include_router(task_comments_router, tags=["task-comments"])
 app.include_router(ai_router, prefix="/agents", tags=["agents"])
 app.include_router(files_router, tags=["files"])
 app.include_router(comments_router, tags=["comments"])
+app.include_router(image_callback_router, tags=["image-callback"])
 
 
 @app.get("/health", tags=["system"])
