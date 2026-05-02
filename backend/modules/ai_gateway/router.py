@@ -21,6 +21,7 @@ class AgentRunRequest(BaseModel):
     message: str
     history: list[dict] | None = None
     object_id: str | None = None
+    files_url: str | None = None
 
 
 @router.get("/")
@@ -74,7 +75,7 @@ async def run_agent(
         # ← сессия живёт всё время стриминга
         async with AsyncSessionLocal() as db:
             try:
-                context = {"db": db, "current_user": current_user}
+                context = {"db": db, "current_user": current_user, "files_url": request.files_url}
                 async for chunk in agent.run(
                     request.message, context, request.history, context_message
                 ):

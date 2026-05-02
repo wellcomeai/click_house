@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
-import { Plus, Building2, MapPin } from "lucide-react"
+import { Plus, Building2, MapPin, Copy, Check } from "lucide-react"
 import { objectsApi } from "@/api/objects"
 import { useAuthStore } from "@/store/authStore"
 import { Button } from "@/components/ui/button"
@@ -17,10 +17,75 @@ const STATUS_COLORS: Record<ObjectStatus, string> = {
   completed: "default",
 } as const
 
+type Obj = { id: string; name: string; status: ObjectStatus; address?: string | null; description?: string | null; planned_end_date?: string | null; budget_planned?: number | string | null }
+
+function ObjectCard({ obj }: { obj: Obj }) {
+  const [copied, setCopied] = useState(false)
+
+  return (
+    <Card key={obj.id} className="hover:shadow-md transition-shadow">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <CardTitle className="text-base leading-tight">{obj.name}</CardTitle>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[11px] text-slate-400 font-mono truncate">{obj.id}</span>
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigator.clipboard.writeText(obj.id)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+              >
+                {copied ? (
+                  <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600 flex-shrink-0" />
+                )}
+              </button>
+            </div>
+          </div>
+          <Badge variant={STATUS_COLORS[obj.status] as any}>
+            {STATUS_LABELS[obj.status]}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {obj.address && (
+          <div className="flex items-start gap-1.5 text-sm text-slate-500">
+            <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>{obj.address}</span>
+          </div>
+        )}
+        {obj.description && (
+          <p className="text-sm text-slate-600 line-clamp-2">{obj.description}</p>
+        )}
+        <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
+          {obj.planned_end_date && (
+            <div>
+              <span className="font-medium">Срок:</span>{" "}
+              {new Date(obj.planned_end_date).toLocaleDateString("ru-RU")}
+            </div>
+          )}
+          {obj.budget_planned && (
+            <div>
+              <span className="font-medium">Бюджет:</span>{" "}
+              {Number(obj.budget_planned).toLocaleString("ru-RU")} ₽
+            </div>
+          )}
+        </div>
+        <Button variant="outline" size="sm" className="w-full" asChild>
+          <Link to={`/objects/${obj.id}`}>Открыть</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function ObjectsList() {
   const { user } = useAuthStore()
   const [search, setSearch] = useState("")
-  const queryClient = useQueryClient()
 
   const { data: objects = [], isLoading } = useQuery({
     queryKey: ["objects"],
@@ -65,44 +130,7 @@ export function ObjectsList() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((obj) => (
-            <Card key={obj.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base leading-tight">{obj.name}</CardTitle>
-                  <Badge variant={STATUS_COLORS[obj.status] as any}>
-                    {STATUS_LABELS[obj.status]}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {obj.address && (
-                  <div className="flex items-start gap-1.5 text-sm text-slate-500">
-                    <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span>{obj.address}</span>
-                  </div>
-                )}
-                {obj.description && (
-                  <p className="text-sm text-slate-600 line-clamp-2">{obj.description}</p>
-                )}
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                  {obj.planned_end_date && (
-                    <div>
-                      <span className="font-medium">Срок:</span>{" "}
-                      {new Date(obj.planned_end_date).toLocaleDateString("ru-RU")}
-                    </div>
-                  )}
-                  {obj.budget_planned && (
-                    <div>
-                      <span className="font-medium">Бюджет:</span>{" "}
-                      {Number(obj.budget_planned).toLocaleString("ru-RU")} ₽
-                    </div>
-                  )}
-                </div>
-                <Button variant="outline" size="sm" className="w-full" asChild>
-                  <Link to={`/objects/${obj.id}`}>Открыть</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <ObjectCard key={obj.id} obj={obj} />
           ))}
         </div>
       )}

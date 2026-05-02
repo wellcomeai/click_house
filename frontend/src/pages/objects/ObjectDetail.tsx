@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, MapPin, Calendar, DollarSign, Plus, X, User } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, DollarSign, Plus, X, User, Copy, Check } from "lucide-react"
 import { objectsApi } from "@/api/objects"
 import { tasksApi } from "@/api/tasks"
 import { usersApi } from "@/api/users"
@@ -70,6 +70,7 @@ function UserNameBadge({ userId, label }: { userId: string; label: string }) {
 export function ObjectDetail() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>("tasks")
+  const [copied, setCopied] = useState(false)
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [taskForm, setTaskForm] = useState({
     title: "",
@@ -154,6 +155,23 @@ export function ObjectDetail() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{obj.name}</h1>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-xs text-slate-400 font-mono">{obj.id}</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(obj.id)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 2000)
+              }}
+              title="Копировать ID"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-green-500" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600" />
+              )}
+            </button>
+          </div>
           <Badge>{STATUS_LABELS[obj.status as ObjectStatus]}</Badge>
         </div>
       </div>

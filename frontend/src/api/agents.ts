@@ -14,7 +14,8 @@ export const agentsApi = {
     objectId: string | null,
     onChunk: (type: string, content: string) => void,
     onDone: () => void,
-    onError: (error: string) => void
+    onError: (error: string) => void,
+    filesUrl: string | null = null
   ) => {
     const token = useAuthStore.getState().accessToken
     const response = await fetch(`${BASE_URL}/agents/${agentName}/run`, {
@@ -23,7 +24,7 @@ export const agentsApi = {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ message, history, object_id: objectId }),
+      body: JSON.stringify({ message, history, object_id: objectId, files_url: filesUrl }),
     })
 
     if (!response.ok) {
