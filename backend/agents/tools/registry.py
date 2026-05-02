@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import Any, Callable
 
@@ -29,7 +30,9 @@ class ToolRegistry:
         if not fn:
             return {"error": f"Инструмент '{name}' не найден"}
         try:
-            return await fn(**args, **context)
+            sig = inspect.signature(fn)
+            filtered_context = {k: v for k, v in context.items() if k in sig.parameters}
+            return await fn(**args, **filtered_context)
         except Exception as exc:
             logger.error("Tool %s failed: %s", name, exc)
             return {"error": str(exc)}
