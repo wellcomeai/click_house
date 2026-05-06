@@ -10,7 +10,7 @@ from modules.personal_kb.search import SearchResult
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = "qwen/qwen3.6-35b-a3b"
+CLAUDE_MODEL = "baidu/cobuddy:free"
 
 _llm_client = AsyncOpenAI(
     api_key=settings.openrouter_api_key,
