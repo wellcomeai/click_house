@@ -26,11 +26,11 @@ async def search_kb(
     rows = await db.execute(
         text("""
             SELECT id, source_type, source_name, chunk_index, chunk_text,
-                   1 - (embedding <=> :vec::vector) AS similarity
+                   1 - (embedding <=> CAST(:vec AS vector)) AS similarity
             FROM kb_chunks
-            WHERE user_id = :uid
+            WHERE user_id = CAST(:uid AS uuid)
               AND embedding IS NOT NULL
-            ORDER BY embedding <=> :vec::vector
+            ORDER BY embedding <=> CAST(:vec AS vector)
             LIMIT :k
         """),
         {"uid": str(user_id), "vec": vec_str, "k": k},
