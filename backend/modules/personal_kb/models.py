@@ -61,7 +61,7 @@ class KBChunk(Base):
     source_name: Mapped[str] = mapped_column(String(500), nullable=False)
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[list] = mapped_column(Vector(1024), nullable=True)
+    embedding: Mapped[list] = mapped_column(Vector(1536))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
