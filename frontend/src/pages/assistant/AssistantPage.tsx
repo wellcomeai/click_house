@@ -464,7 +464,7 @@ export function AssistantPage() {
 
   useEffect(() => {
     setSidebarOpen(false)
-  }, [])
+  }, [setSidebarOpen])
 
   // ── View / UI state ────────────────────────────────────────────────────
 
@@ -603,6 +603,8 @@ export function AssistantPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
+          // skip_history prevents this meta-request from polluting the conversation
+          skip_history: true,
           message: `На основе этого ответа: "${answer.slice(0, 300)}"
 Предложи ровно 3 коротких уточняющих вопроса (максимум 6 слов каждый).
 Ответь ТОЛЬКО JSON массивом строк без объяснений. Пример: ["вопрос 1","вопрос 2","вопрос 3"]`,
@@ -614,16 +616,17 @@ export function AssistantPage() {
       const decoder = new TextDecoder()
       let fullText = ""
       let buffer = ""
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+      let done = false
+      while (!done) {
+        const { done: readerDone, value } = await reader.read()
+        if (readerDone) break
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split("\n")
         buffer = lines.pop() ?? ""
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue
           const data = line.slice(6).trim()
-          if (data === "[DONE]") break
+          if (data === "[DONE]") { done = true; break }
           try {
             const parsed = JSON.parse(data)
             if (parsed.type === "text") fullText += parsed.content
@@ -1464,8 +1467,8 @@ export function AssistantPage() {
                   onClick={() => navigator.clipboard.writeText(lastAnswer)}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-white transition-colors text-left w-full"
                 >
-                  <Bookmark className="h-4 w-4 text-slate-400" />
-                  Сохранить ответ
+                  <Copy className="h-4 w-4 text-slate-400" />
+                  Копировать ответ
                 </button>
                 <button
                   onClick={() => {
@@ -1475,7 +1478,8 @@ export function AssistantPage() {
                     a.href = url
                     a.download = "ответ-ассистента.txt"
                     a.click()
-                    URL.revokeObjectURL(url)
+                    // Defer revoke: browser needs time to start the download before the URL is released
+                    setTimeout(() => URL.revokeObjectURL(url), 10000)
                   }}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-white transition-colors text-left w-full"
                 >

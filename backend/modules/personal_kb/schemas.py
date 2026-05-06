@@ -62,6 +62,7 @@ class KBStats(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
+    skip_history: bool = False
 
 
 class ChatHistoryItem(BaseModel):

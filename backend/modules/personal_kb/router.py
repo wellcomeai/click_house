@@ -349,14 +349,15 @@ async def chat(
                     for r in reversed(history_rows)
                 ]
 
-                db.add(
-                    AssistantChatHistory(
-                        user_id=current_user.id,
-                        role="user",
-                        content=request.message,
+                if not request.skip_history:
+                    db.add(
+                        AssistantChatHistory(
+                            user_id=current_user.id,
+                            role="user",
+                            content=request.message,
+                        )
                     )
-                )
-                await db.flush()
+                    await db.flush()
 
                 full_response: list[str] = []
                 async for sse_line in stream_answer(request.message, history, chunks):
@@ -369,7 +370,7 @@ async def chat(
                         except Exception:
                             pass
 
-                if full_response:
+                if full_response and not request.skip_history:
                     db.add(
                         AssistantChatHistory(
                             user_id=current_user.id,
