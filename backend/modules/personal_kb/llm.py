@@ -2,14 +2,20 @@ import json
 import logging
 from typing import AsyncGenerator
 
-import anthropic
+from openai import AsyncOpenAI
 
 from config import settings
 from modules.personal_kb.search import SearchResult
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+# Claude via OpenRouter — same API key already used for embeddings
+CLAUDE_MODEL = "anthropic/claude-sonnet-4-5"
+
+_llm_client = AsyncOpenAI(
+    api_key=settings.openrouter_api_key,
+    base_url="https://openrouter.ai/api/v1",
+)
 
 
 def _build_system_prompt(chunks: list[SearchResult]) -> str:
@@ -54,18 +60,21 @@ async def stream_answer(
     yield f"data: {json.dumps({'type': 'sources', 'sources': sources_payload}, ensure_ascii=False)}\n\n"
 
     system_prompt = _build_system_prompt(chunks)
-    messages = list(history) + [{"role": "user", "content": user_message}]
+    messages = [{"role": "system", "content": system_prompt}] + list(history) + [
+        {"role": "user", "content": user_message}
+    ]
 
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     try:
-        async with client.messages.stream(
+        stream = await _llm_client.chat.completions.create(
             model=CLAUDE_MODEL,
-            max_tokens=2048,
-            system=system_prompt,
             messages=messages,
-        ) as stream:
-            async for text_chunk in stream.text_stream:
-                yield f"data: {json.dumps({'type': 'text', 'content': text_chunk}, ensure_ascii=False)}\n\n"
+            max_tokens=2048,
+            stream=True,
+        )
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                yield f"data: {json.dumps({'type': 'text', 'content': delta.content}, ensure_ascii=False)}\n\n"
     except Exception as e:
         logger.exception("LLM streaming error: %s", e)
         yield f"data: {json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
