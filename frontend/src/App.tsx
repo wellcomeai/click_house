@@ -16,6 +16,7 @@ import { TaskDetail } from "@/pages/tasks/TaskDetail"
 import { Profile } from "@/pages/profile/Profile"
 import { AgentChat } from "@/pages/agents/AgentChat"
 import { AdminUsers } from "@/pages/admin/Users"
+import { AssistantPage } from "@/pages/assistant/AssistantPage"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,9 @@ function App() {
               <Route path="/tasks" element={<MyTasks />} />
               <Route path="/tasks/:id" element={<TaskDetail />} />
               <Route path="/profile" element={<Profile />} />
+
+              {/* Personal AI Assistant — all roles */}
+              <Route path="/assistant" element={<AssistantPage />} />
 
               {/* Agents — admin, manager, foreman only */}
               <Route element={<RoleGuard roles={["admin", "manager", "foreman"]} />}>

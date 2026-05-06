@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    anthropic_api_key: str = ""
 
     kie_api_key: str = ""
     public_url: str = "https://click-house-38.onrender.com"

@@ -20,6 +20,7 @@ from modules.tasks.models import Task, TaskChecklist  # noqa: F401
 from modules.files.models import ObjectFile  # noqa: F401
 from modules.comments.models import ObjectComment  # noqa: F401
 from modules.tasks.comment_model import TaskComment  # noqa: F401
+from modules.personal_kb.models import PersonalNote, KBFile, KBChunk, AssistantChatHistory  # noqa: F401
 
 config = context.config
 

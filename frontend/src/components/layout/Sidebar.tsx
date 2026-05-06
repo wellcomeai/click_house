@@ -7,6 +7,7 @@ import {
   Bot,
   Users,
   ChevronLeft,
+  BrainCircuit,
 } from "lucide-react"
 import { useAuthStore } from "@/store/authStore"
 import { useUiStore } from "@/store/uiStore"
@@ -44,6 +45,12 @@ const navItems: NavItem[] = [
     label: "AI Агенты",
     icon: Bot,
     roles: ["admin", "manager", "foreman"],
+  },
+  {
+    path: "/assistant",
+    label: "AI Ассистент",
+    icon: BrainCircuit,
+    roles: ["admin", "manager", "foreman", "worker"],
   },
   {
     path: "/admin/users",
