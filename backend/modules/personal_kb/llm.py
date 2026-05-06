@@ -10,7 +10,7 @@ from modules.personal_kb.search import SearchResult
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = "ibm-granite/granite-4.1-8b"
+CLAUDE_MODEL = "qwen/qwen3.6-35b-a3b"
 
 _llm_client = AsyncOpenAI(
     api_key=settings.openrouter_api_key,
