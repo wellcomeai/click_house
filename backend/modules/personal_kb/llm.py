@@ -10,7 +10,7 @@ from modules.personal_kb.search import SearchResult
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_MODEL = "baidu/cobuddy:free"
+CLAUDE_MODEL = "deepseek/deepseek-v4-flash"
 
 _llm_client = AsyncOpenAI(
     api_key=settings.openrouter_api_key,
