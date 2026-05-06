@@ -15,7 +15,7 @@ _embed_client = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
 )
 
-EMBED_MODEL = "qwen/qwen3-embedding-8b"
+EMBED_MODEL = "text-embedding-3-small"
 CHUNK_WINDOW = 400
 CHUNK_OVERLAP = 50
 CHUNK_MIN = 20
