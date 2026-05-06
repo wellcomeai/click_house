@@ -9,8 +9,7 @@ from modules.personal_kb.search import SearchResult
 
 logger = logging.getLogger(__name__)
 
-# Claude via OpenRouter — same API key already used for embeddings
-CLAUDE_MODEL = "anthropic/claude-sonnet-4-5"
+CLAUDE_MODEL = "ibm-granite/granite-4.1-8b"
 
 _llm_client = AsyncOpenAI(
     api_key=settings.openrouter_api_key,
