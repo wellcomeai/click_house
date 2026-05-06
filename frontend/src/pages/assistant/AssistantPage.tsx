@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import ReactMarkdown from "react-markdown"
+import React from "react"
 import {
   BrainCircuit,
   Sparkles,
@@ -1249,7 +1251,60 @@ export function AssistantPage() {
                       {msg.isStreaming && !msg.content ? (
                         <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                       ) : (
-                        <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+                        <div className="assistant-prose">
+                          <ReactMarkdown
+                            components={{
+                              h1: ({ children }) => <p className="font-semibold text-slate-800 text-base mb-2 mt-3 first:mt-0">{children}</p>,
+                              h2: ({ children }) => <p className="font-semibold text-slate-800 mb-1.5 mt-3 first:mt-0">{children}</p>,
+                              h3: ({ children }) => <p className="font-medium text-slate-700 mb-1 mt-2 first:mt-0">{children}</p>,
+                              p: ({ children }) => <p className="mb-2 last:mb-0 text-slate-700 leading-relaxed">{children}</p>,
+                              strong: ({ children }) => <span className="font-semibold text-slate-800">{children}</span>,
+                              em: ({ children }) => <span className="italic text-slate-600">{children}</span>,
+                              ul: ({ children }) => (
+                                <ul className="mb-2 space-y-1.5 pl-0 list-none">{children}</ul>
+                              ),
+                              ol: ({ children }) => {
+                                let idx = 0
+                                const numbered = React.Children.map(children, (child) => {
+                                  if (!React.isValidElement(child)) return child
+                                  idx++
+                                  return React.cloneElement(child as React.ReactElement<{ "data-n": number }>, { "data-n": idx })
+                                })
+                                return <ol className="mb-2 space-y-1.5 pl-0 list-none">{numbered}</ol>
+                              },
+                              li: ({ children, ...rest }) => {
+                                const num = (rest as Record<string, unknown>)["data-n"] as number | undefined
+                                return num != null ? (
+                                  <li className="flex items-start gap-2.5 text-slate-700">
+                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#f0faf0] text-[#22b722] text-[11px] font-bold flex items-center justify-center mt-0.5">
+                                      {num}
+                                    </span>
+                                    <span className="flex-1 leading-relaxed">{children}</span>
+                                  </li>
+                                ) : (
+                                  <li className="flex items-start gap-2.5 text-slate-700">
+                                    <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[#22b722] mt-2.5" />
+                                    <span className="flex-1 leading-relaxed">{children}</span>
+                                  </li>
+                                )
+                              },
+                              hr: () => <div className="border-t border-slate-100 my-3" />,
+                              blockquote: ({ children }) => (
+                                <div className="border-l-2 border-[#22b722] pl-3 my-2 text-slate-600 italic">{children}</div>
+                              ),
+                              code: ({ children, className }) => {
+                                const isBlock = className?.includes("language-")
+                                return isBlock ? (
+                                  <div className="bg-slate-50 rounded-xl px-3 py-2 my-2 text-xs text-slate-700 font-mono overflow-x-auto">{children}</div>
+                                ) : (
+                                  <span className="bg-slate-100 rounded px-1 py-0.5 text-xs font-mono text-slate-700">{children}</span>
+                                )
+                              },
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
                       )}
                     </div>
                     {!msg.isStreaming && msg.content && (
