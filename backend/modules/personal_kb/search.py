@@ -5,6 +5,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+MIN_SIMILARITY = 0.30
+
+
 @dataclass
 class SearchResult:
     id: int
@@ -20,6 +23,7 @@ async def search_kb(
     user_id: uuid.UUID,
     query_embedding: list[float],
     k: int = 5,
+    min_similarity: float = MIN_SIMILARITY,
 ) -> list[SearchResult]:
     vec_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
@@ -30,10 +34,11 @@ async def search_kb(
             FROM kb_chunks
             WHERE user_id = CAST(:uid AS uuid)
               AND embedding IS NOT NULL
+              AND 1 - (embedding <=> CAST(:vec AS vector)) >= :min_sim
             ORDER BY embedding <=> CAST(:vec AS vector)
             LIMIT :k
         """),
-        {"uid": str(user_id), "vec": vec_str, "k": k},
+        {"uid": str(user_id), "vec": vec_str, "k": k, "min_sim": min_similarity},
     )
     return [
         SearchResult(

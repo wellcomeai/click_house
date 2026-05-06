@@ -19,7 +19,6 @@ EMBED_MODEL = "text-embedding-3-small"
 CHUNK_WINDOW = 400
 CHUNK_OVERLAP = 50
 CHUNK_MIN = 20
-CHUNK_MAX = 600
 
 
 def parse_text(file_bytes: bytes, file_type: str) -> str:
@@ -51,8 +50,7 @@ def split_into_chunks(text: str) -> list[str]:
         end = min(start + CHUNK_WINDOW, len(words))
         chunk_words = words[start:end]
         if len(chunk_words) >= CHUNK_MIN:
-            chunk = " ".join(chunk_words[:CHUNK_MAX])
-            chunks.append(chunk)
+            chunks.append(" ".join(chunk_words))
         if end >= len(words):
             break
         start += step
@@ -111,6 +109,7 @@ async def index_file(db: AsyncSession, kb_file: KBFile, file_bytes: bytes) -> No
             )
         )
 
+        indexed_count = 0
         for idx, chunk_text in enumerate(chunks):
             embedding = await get_embedding(chunk_text)
             if embedding is None:
@@ -124,8 +123,13 @@ async def index_file(db: AsyncSession, kb_file: KBFile, file_bytes: bytes) -> No
                 chunk_text=chunk_text,
                 embedding=embedding,
             ))
+            indexed_count += 1
 
-        kb_file.status = "indexed"
+        if indexed_count == 0:
+            kb_file.status = "error"
+            kb_file.error_message = "Не удалось создать эмбеддинги ни для одного фрагмента текста"
+        else:
+            kb_file.status = "indexed"
         await db.flush()
 
     except Exception as e:

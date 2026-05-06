@@ -173,4 +173,11 @@ class BaseAgent:
                     }
                 )
 
+            # If this was the last allowed iteration but the model still wanted
+            # to call tools, we consumed the results but can't make another LLM
+            # call. Inform the user rather than silently dropping the output.
+            if iteration == self.max_iterations - 1:
+                logger.warning("Agent reached max_iterations (%d) with pending tool results", self.max_iterations)
+                yield f"data: {json.dumps({'type': 'text', 'content': 'Достигнут лимит шагов агента. Ответ может быть неполным.'})}\n\n"
+
         yield "data: [DONE]\n\n"

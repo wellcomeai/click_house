@@ -49,8 +49,6 @@ def _build_system_prompt(chunks: list[SearchResult]) -> str:
         for i, c in enumerate(chunks, 1)
     ]
     context = "\n\n".join(context_parts)
-    first_source = chunks[0].source_name
-
     return f"""Ты — персональный AI-ассистент. Отвечай на вопросы пользователя строго по фрагментам из его базы знаний.
 
 ПРАВИЛА:
@@ -62,7 +60,7 @@ def _build_system_prompt(chunks: list[SearchResult]) -> str:
    - нумерованные (1. 2. 3.) или маркированные (- ) списки при перечислении
    - короткие абзацы с пустой строкой между ними
    - НЕ используй таблицы, символы |, ASCII-графику, блоки кода (```)
-5. Ссылайся на источник естественно: «согласно {first_source}» или «(из документа "{first_source}")».
+5. Ссылайся на конкретный источник, из которого взята информация: «согласно [Источнику 1]» или «(из документа "[Источник 2]")». Не упоминай источник, если не использовал его в ответе.
 6. Начинай ответ сразу с сути — без вводных фраз «На основе предоставленных данных...».
 7. В конце ответа — только текст. Никакого JSON, XML, технических блоков, списков вопросов.
 
@@ -103,12 +101,24 @@ async def stream_answer(
             temperature=0.3,
             stream=True,
         )
+        # Buffer text until newline so _sanitize always sees whole lines
+        line_buffer = ""
         async for chunk in stream:
             delta = chunk.choices[0].delta
-            if delta.content:
-                clean = _sanitize(delta.content)
+            if not delta.content:
+                continue
+            line_buffer += delta.content
+            # Flush complete lines; keep the incomplete tail in the buffer
+            while "\n" in line_buffer:
+                line, line_buffer = line_buffer.split("\n", 1)
+                clean = _sanitize(line + "\n")
                 if clean:
                     yield f"data: {json.dumps({'type': 'text', 'content': clean}, ensure_ascii=False)}\n\n"
+        # Flush remaining text that has no trailing newline
+        if line_buffer:
+            clean = _sanitize(line_buffer)
+            if clean:
+                yield f"data: {json.dumps({'type': 'text', 'content': clean}, ensure_ascii=False)}\n\n"
     except Exception as e:
         logger.exception("LLM streaming error: %s", e)
         yield f"data: {json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
