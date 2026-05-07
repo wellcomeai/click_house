@@ -60,8 +60,27 @@ class KBStats(BaseModel):
     total_size_bytes: int
 
 
+class ChatSessionCreate(BaseModel):
+    title: str = "Новый чат"
+
+
+class ChatSessionUpdate(BaseModel):
+    title: str
+
+
+class ChatSessionResponse(BaseModel):
+    id: uuid.UUID
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    last_message: str | None = None
+    message_count: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ChatRequest(BaseModel):
     message: str
+    session_id: uuid.UUID | None = None
     skip_history: bool = False
 
 

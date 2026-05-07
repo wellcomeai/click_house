@@ -41,6 +41,15 @@ export interface KBStats {
   total_size_bytes: number
 }
 
+export interface ChatSession {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  last_message: string | null
+  message_count: number
+}
+
 export interface ChatHistoryItem {
   id: number
   role: "user" | "assistant"
@@ -98,10 +107,24 @@ export const assistantApi = {
   // Stats
   getStats: () => apiClient.get<KBStats>("/assistant/stats").then((r) => r.data),
 
-  // Chat history
-  getChatHistory: (limit = 50) =>
+  // Sessions
+  createSession: (title?: string) =>
     apiClient
-      .get<ChatHistoryItem[]>(`/assistant/chat/history?limit=${limit}`)
+      .post<ChatSession>("/assistant/sessions", { title: title || "Новый чат" })
+      .then((r) => r.data),
+
+  listSessions: () =>
+    apiClient.get<ChatSession[]>("/assistant/sessions").then((r) => r.data),
+
+  renameSession: (id: string, title: string) =>
+    apiClient.put<ChatSession>(`/assistant/sessions/${id}`, { title }).then((r) => r.data),
+
+  deleteSession: (id: string) => apiClient.delete(`/assistant/sessions/${id}`),
+
+  // Chat history
+  getChatHistory: (sessionId: string, limit = 50) =>
+    apiClient
+      .get<ChatHistoryItem[]>(`/assistant/chat/history?session_id=${sessionId}&limit=${limit}`)
       .then((r) => r.data),
 
   clearChatHistory: () => apiClient.delete("/assistant/chat/history"),
@@ -109,8 +132,10 @@ export const assistantApi = {
   // Streaming chat — native fetch for SSE
   streamChat: async (
     message: string,
+    sessionId: string | null,
     onText: (chunk: string) => void,
     onSources: (sources: SourceItem[]) => void,
+    onSessionId: (sessionId: string) => void,
     onDone: () => void,
     onError: (err: string) => void,
   ) => {
@@ -123,7 +148,7 @@ export const assistantApi = {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, session_id: sessionId }),
       })
     } catch (e) {
       onError("Ошибка сети")
@@ -161,7 +186,8 @@ export const assistantApi = {
         }
         try {
           const parsed = JSON.parse(data)
-          if (parsed.type === "text") onText(parsed.content)
+          if (parsed.type === "session_id") onSessionId(parsed.session_id)
+          else if (parsed.type === "text") onText(parsed.content)
           else if (parsed.type === "sources") onSources(parsed.sources)
           else if (parsed.type === "error") {
             onError(parsed.content)

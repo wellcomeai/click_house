@@ -18,6 +18,7 @@ from modules.personal_kb.indexer import get_embedding, index_file, index_note
 from modules.personal_kb.llm import stream_answer
 from modules.personal_kb.models import (
     AssistantChatHistory,
+    ChatSession,
     KBChunk,
     KBFile,
     PersonalNote,
@@ -25,6 +26,9 @@ from modules.personal_kb.models import (
 from modules.personal_kb.schemas import (
     ChatHistoryItem,
     ChatRequest,
+    ChatSessionCreate,
+    ChatSessionResponse,
+    ChatSessionUpdate,
     ChunkPreview,
     KBFileResponse,
     KBStats,
@@ -317,6 +321,123 @@ async def get_stats(
     )
 
 
+# ── Sessions ───────────────────────────────────────────────────────────────
+
+
+@router.post("/sessions", response_model=ChatSessionResponse, status_code=201)
+async def create_session(
+    data: ChatSessionCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    session = ChatSession(
+        user_id=current_user.id,
+        title=data.title or "Новый чат",
+    )
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return ChatSessionResponse(
+        id=session.id,
+        title=session.title,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        last_message=None,
+        message_count=0,
+    )
+
+
+@router.get("/sessions", response_model=list[ChatSessionResponse])
+async def list_sessions(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    sessions_result = await db.execute(
+        select(ChatSession)
+        .where(ChatSession.user_id == current_user.id)
+        .order_by(ChatSession.updated_at.desc())
+    )
+    sessions = sessions_result.scalars().all()
+
+    response = []
+    for s in sessions:
+        count_row = await db.execute(
+            select(func.count()).select_from(AssistantChatHistory).where(
+                AssistantChatHistory.session_id == s.id
+            )
+        )
+        message_count = count_row.scalar_one()
+
+        last_msg_row = await db.execute(
+            select(AssistantChatHistory)
+            .where(AssistantChatHistory.session_id == s.id)
+            .order_by(AssistantChatHistory.created_at.desc())
+            .limit(1)
+        )
+        last_msg = last_msg_row.scalar_one_or_none()
+
+        response.append(
+            ChatSessionResponse(
+                id=s.id,
+                title=s.title,
+                created_at=s.created_at,
+                updated_at=s.updated_at,
+                last_message=last_msg.content[:100] if last_msg else None,
+                message_count=message_count,
+            )
+        )
+    return response
+
+
+@router.put("/sessions/{session_id}", response_model=ChatSessionResponse)
+async def rename_session(
+    session_id: uuid.UUID,
+    data: ChatSessionUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Сессия не найдена")
+    session.title = data.title
+    session.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(session)
+    return ChatSessionResponse(
+        id=session.id,
+        title=session.title,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        last_message=None,
+        message_count=0,
+    )
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+async def delete_session(
+    session_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user=Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == current_user.id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(status_code=404, detail="Сессия не найдена")
+    await db.delete(session)
+    await db.commit()
+
+
 # ── Chat ───────────────────────────────────────────────────────────────────
 
 
@@ -328,6 +449,31 @@ async def chat(
     async def generate():
         async with AsyncSessionLocal() as db:
             try:
+                # Resolve or create session
+                session_id = request.session_id
+                if not request.skip_history:
+                    if session_id is not None:
+                        sess_result = await db.execute(
+                            select(ChatSession).where(
+                                ChatSession.id == session_id,
+                                ChatSession.user_id == current_user.id,
+                            )
+                        )
+                        session = sess_result.scalar_one_or_none()
+                        if not session:
+                            session_id = None
+                    if session_id is None:
+                        session = ChatSession(
+                            user_id=current_user.id,
+                            title="Новый чат",
+                        )
+                        db.add(session)
+                        await db.flush()
+                        session_id = session.id
+
+                    # Send session_id as first SSE event
+                    yield f"data: {json.dumps({'type': 'session_id', 'session_id': str(session_id)}, ensure_ascii=False)}\n\n"
+
                 query_embedding = await get_embedding(request.message)
                 if query_embedding is None:
                     yield f"data: {json.dumps({'type': 'error', 'content': 'Не удалось создать эмбеддинг запроса'}, ensure_ascii=False)}\n\n"
@@ -339,7 +485,10 @@ async def chat(
                 history_rows = (
                     await db.execute(
                         select(AssistantChatHistory)
-                        .where(AssistantChatHistory.user_id == current_user.id)
+                        .where(
+                            AssistantChatHistory.user_id == current_user.id,
+                            AssistantChatHistory.session_id == session_id,
+                        )
                         .order_by(AssistantChatHistory.created_at.desc())
                         .limit(20)
                     )
@@ -350,9 +499,20 @@ async def chat(
                 ]
 
                 if not request.skip_history:
+                    # Auto-update title if session title is still default and this is the first message
+                    if session_id is not None and len(history_rows) == 0:
+                        sess_result = await db.execute(
+                            select(ChatSession).where(ChatSession.id == session_id)
+                        )
+                        session_obj = sess_result.scalar_one_or_none()
+                        if session_obj and session_obj.title == "Новый чат":
+                            session_obj.title = request.message[:60]
+                            session_obj.updated_at = datetime.now(timezone.utc)
+
                     db.add(
                         AssistantChatHistory(
                             user_id=current_user.id,
+                            session_id=session_id,
                             role="user",
                             content=request.message,
                         )
@@ -374,10 +534,18 @@ async def chat(
                     db.add(
                         AssistantChatHistory(
                             user_id=current_user.id,
+                            session_id=session_id,
                             role="assistant",
                             content="".join(full_response),
                         )
                     )
+                    if session_id is not None:
+                        sess_result = await db.execute(
+                            select(ChatSession).where(ChatSession.id == session_id)
+                        )
+                        session_obj = sess_result.scalar_one_or_none()
+                        if session_obj:
+                            session_obj.updated_at = datetime.now(timezone.utc)
                     await db.commit()
 
             except Exception as e:
@@ -400,14 +568,18 @@ async def chat(
 async def get_chat_history(
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user=Depends(get_current_user),
+    session_id: uuid.UUID | None = Query(default=None),
     limit: int = Query(default=50, le=200),
 ):
-    result = await db.execute(
+    q = (
         select(AssistantChatHistory)
         .where(AssistantChatHistory.user_id == current_user.id)
         .order_by(AssistantChatHistory.created_at.asc())
         .limit(limit)
     )
+    if session_id is not None:
+        q = q.where(AssistantChatHistory.session_id == session_id)
+    result = await db.execute(q)
     return result.scalars().all()
 
 

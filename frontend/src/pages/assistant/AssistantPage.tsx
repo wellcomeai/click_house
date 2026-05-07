@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
 import React from "react"
@@ -17,7 +17,6 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
-  Bookmark,
   Download,
   Edit2,
   Copy,
@@ -28,6 +27,9 @@ import {
   User,
   Upload,
   ChevronLeft,
+  MessageSquare,
+  Clock,
+  Trash2,
 } from "lucide-react"
 import {
   assistantApi,
@@ -36,11 +38,9 @@ import {
   type KBFile,
   type ChunkPreview,
   type SourceItem,
+  type ChatSession,
 } from "@/api/assistant"
 import { useUiStore } from "@/store/uiStore"
-import { useAuthStore } from "@/store/authStore"
-
-const BASE_URL = import.meta.env.VITE_API_URL || ""
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -456,6 +456,88 @@ function ItemModal({
   return null
 }
 
+// ── Sessions Panel ───────────────────────────────────────────────────────────
+
+function SessionsPanel({
+  sessions,
+  currentSessionId,
+  onSelect,
+  onDelete,
+  onNewChat,
+  onClose,
+}: {
+  sessions: ChatSession[]
+  currentSessionId: string | null
+  onSelect: (id: string) => void
+  onDelete: (id: string) => void
+  onNewChat: () => void
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-40 flex" onClick={onClose}>
+      <div className="flex-1" />
+      <div
+        className="w-80 bg-white h-full shadow-2xl border-l border-slate-100 flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-slate-400" />
+            История чатов
+          </h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="px-3 py-3 border-b border-slate-100">
+          <button
+            onClick={() => { onNewChat(); onClose() }}
+            className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-[#22b722] text-white hover:bg-[#1a9a1a] transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Новый чат
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-2">
+          {sessions.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+              <MessageSquare className="h-8 w-8 opacity-30" />
+              <p className="text-xs text-center">Нет сохранённых чатов</p>
+            </div>
+          )}
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              onClick={() => { onSelect(s.id); onClose() }}
+              className={`group relative px-3 py-3 rounded-xl mb-1 cursor-pointer transition-colors ${
+                s.id === currentSessionId
+                  ? "bg-[#f0faf0] border border-[#22b722]"
+                  : "hover:bg-slate-50"
+              }`}
+            >
+              <p className="text-sm font-medium text-slate-800 truncate pr-7">{s.title}</p>
+              {s.last_message && (
+                <p className="text-xs text-slate-400 mt-0.5 truncate">{s.last_message}</p>
+              )}
+              <p className="text-xs text-slate-400 mt-1">
+                {formatShortDate(s.updated_at)} · {s.message_count} сообщ.
+              </p>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(s.id) }}
+                className="absolute top-3 right-2 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export function AssistantPage() {
@@ -471,7 +553,9 @@ export function AssistantPage() {
   const [view, setView] = useState<View>("knowledge")
   const [activeTab, setActiveTab] = useState<KnowledgeTab>("all")
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
-  const [searchQuery, setSearchQuery] = useState("")
+  // Problem 1: separate states for ask query and list filter
+  const [askQuery, setAskQuery] = useState("")
+  const [listFilter, setListFilter] = useState("")
   const [showSortMenu, setShowSortMenu] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -483,13 +567,20 @@ export function AssistantPage() {
   const [chatInput, setChatInput] = useState("")
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
-  const [historyLoaded, setHistoryLoaded] = useState(false)
   const [lastSources, setLastSources] = useState<SourceItem[]>([])
   const [lastAnswer, setLastAnswer] = useState("")
-  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([])
   const [showAllSources, setShowAllSources] = useState(false)
 
+  // Problem 2: session state
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [showSessionsPanel, setShowSessionsPanel] = useState(false)
+
+  // Problem 3: scroll state
+  const [showScrollDown, setShowScrollDown] = useState(false)
+
   const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
   const pendingSendRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -518,11 +609,6 @@ export function AssistantPage() {
   const { data: chunks = [] } = useQuery({
     queryKey: ["assistant-chunks"],
     queryFn: () => assistantApi.listChunks("all"),
-  })
-
-  const { data: chatHistory } = useQuery({
-    queryKey: ["assistant-chat-history"],
-    queryFn: () => assistantApi.getChatHistory(50),
   })
 
   // ── Mutations ──────────────────────────────────────────────────────────
@@ -564,25 +650,85 @@ export function AssistantPage() {
     },
   })
 
-  // ── Effects ────────────────────────────────────────────────────────────
+  // ── Session helpers ────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (chatHistory && !historyLoaded) {
+  const loadSessions = useCallback(async () => {
+    try {
+      const data = await assistantApi.listSessions()
+      setSessions(data)
+    } catch {
+      // silently fail
+    }
+  }, [])
+
+  const handleNewChat = useCallback(() => {
+    setMessages([])
+    setCurrentSessionId(null)
+    setLastSources([])
+    setLastAnswer("")
+    setView("chat")
+  }, [])
+
+  const handleSelectSession = useCallback(async (sessionId: string) => {
+    setCurrentSessionId(sessionId)
+    setLastSources([])
+    setLastAnswer("")
+    try {
+      const history = await assistantApi.getChatHistory(sessionId, 50)
       setMessages(
-        chatHistory.map((h) => ({
+        history.map((h) => ({
           role: h.role,
           content: h.content,
           timestamp: new Date(h.created_at),
         }))
       )
-      setHistoryLoaded(true)
+    } catch {
+      setMessages([])
     }
-  }, [chatHistory, historyLoaded])
+  }, [])
 
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
+    try {
+      await assistantApi.deleteSession(sessionId)
+      if (currentSessionId === sessionId) {
+        setMessages([])
+        setCurrentSessionId(null)
+        setLastSources([])
+        setLastAnswer("")
+      }
+      await loadSessions()
+    } catch {
+      // silently fail
+    }
+  }, [currentSessionId, loadSessions])
+
+  // ── Effects ────────────────────────────────────────────────────────────
+
+  // Load sessions when entering chat view
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    if (view === "chat") {
+      loadSessions()
+    }
+  }, [view, loadSessions])
+
+  // Scroll to bottom on session change (instant)
+  useEffect(() => {
+    if (messages.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: "instant" })
+    }
+  }, [currentSessionId])
+
+  // Scroll to bottom during streaming if already near bottom
+  useEffect(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom < 150) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    }
   }, [messages])
 
+  // Handle pending send after switching to chat
   useEffect(() => {
     if (view === "chat" && pendingSendRef.current) {
       const msg = pendingSendRef.current
@@ -591,69 +737,21 @@ export function AssistantPage() {
     }
   }, [view])
 
-  // ── Chat logic ─────────────────────────────────────────────────────────
+  // ── Scroll handler (Problem 3) ─────────────────────────────────────────
 
-  const generateSuggestions = async (answer: string) => {
-    const token = useAuthStore.getState().accessToken
-    try {
-      const response = await fetch(`${BASE_URL}/assistant/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          // skip_history prevents this meta-request from polluting the conversation
-          skip_history: true,
-          message: `На основе этого ответа: "${answer.slice(0, 300)}"
-Предложи ровно 3 коротких уточняющих вопроса (максимум 6 слов каждый).
-Ответь ТОЛЬКО JSON массивом строк без объяснений. Пример: ["вопрос 1","вопрос 2","вопрос 3"]`,
-        }),
-      })
-      if (!response.ok) return
-      const reader = response.body?.getReader()
-      if (!reader) return
-      const decoder = new TextDecoder()
-      let fullText = ""
-      let buffer = ""
-      let done = false
-      while (!done) {
-        const { done: readerDone, value } = await reader.read()
-        if (readerDone) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
-          const data = line.slice(6).trim()
-          if (data === "[DONE]") { done = true; break }
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.type === "text") fullText += parsed.content
-          } catch {
-            // skip
-          }
-        }
-      }
-      const match = fullText.match(/\[[\s\S]*?\]/)
-      if (match) {
-        const questions = JSON.parse(match[0])
-        if (Array.isArray(questions)) {
-          setSuggestedQuestions(
-            questions.slice(0, 3).filter((q: unknown) => typeof q === "string")
-          )
-        }
-      }
-    } catch {
-      // silently fail
-    }
-  }
+  const handleScroll = useCallback(() => {
+    const el = messagesContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    setShowScrollDown(distanceFromBottom > 100)
+  }, [])
+
+  // ── Chat logic ─────────────────────────────────────────────────────────
 
   const sendMessageWithText = async (text: string) => {
     if (!text.trim() || isStreaming) return
     setChatInput("")
     setIsStreaming(true)
-    setSuggestedQuestions([])
     setShowAllSources(false)
 
     setMessages((prev) => [
@@ -666,6 +764,7 @@ export function AssistantPage() {
 
     await assistantApi.streamChat(
       text,
+      currentSessionId,
       (chunk) => {
         accumulated += chunk
         setMessages((prev) => {
@@ -688,6 +787,10 @@ export function AssistantPage() {
           return updated
         })
       },
+      (newSessionId) => {
+        setCurrentSessionId(newSessionId)
+        loadSessions()
+      },
       () => {
         setIsStreaming(false)
         setLastAnswer(accumulated)
@@ -700,7 +803,7 @@ export function AssistantPage() {
           return updated
         })
         queryClient.invalidateQueries({ queryKey: ["assistant-stats"] })
-        generateSuggestions(accumulated)
+        loadSessions()
       },
       (err) => {
         setIsStreaming(false)
@@ -719,6 +822,8 @@ export function AssistantPage() {
   const switchToChat = (initialMessage?: string) => {
     setView("chat")
     if (initialMessage?.trim()) {
+      setMessages([])
+      setCurrentSessionId(null)
       pendingSendRef.current = initialMessage
     }
   }
@@ -739,6 +844,7 @@ export function AssistantPage() {
     ...files.map((f) => ({ kind: "file" as const, item: f, date: new Date(f.created_at) })),
   ]
 
+  // Problem 1: filter uses listFilter, NOT askQuery
   const filteredEntries = allEntries
     .filter((e) => {
       if (activeTab === "notes") return e.kind === "note"
@@ -746,9 +852,9 @@ export function AssistantPage() {
       return true
     })
     .filter((e) => {
-      if (!searchQuery.trim()) return true
+      if (!listFilter.trim()) return true
       const name = e.kind === "note" ? e.item.title : (e.item as KBFile).original_name
-      return name.toLowerCase().includes(searchQuery.toLowerCase())
+      return name.toLowerCase().includes(listFilter.toLowerCase())
     })
     .sort((a, b) =>
       sortOrder === "newest"
@@ -757,13 +863,6 @@ export function AssistantPage() {
     )
 
   const filteredChunks = chunks
-    .filter((c) => {
-      if (!searchQuery.trim()) return true
-      return (
-        c.source_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.chunk_text_preview.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    })
     .sort((a, b) =>
       sortOrder === "newest"
         ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -802,22 +901,32 @@ export function AssistantPage() {
         </div>
       </div>
 
-      {/* Search bar */}
+      {/* Problem 1: Ask bar — sets askQuery, does NOT filter list */}
       <div className="px-6 mb-4">
         <div className="flex items-center bg-white rounded-2xl shadow-sm border border-slate-100 h-[52px] px-4 gap-3">
           <Sparkles className="h-4 w-4 text-slate-400 flex-shrink-0" />
           <input
             type="text"
             placeholder="Спросите что угодно о ваших знаниях..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={askQuery}
+            onChange={(e) => setAskQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && searchQuery.trim()) switchToChat(searchQuery)
+              if (e.key === "Enter" && askQuery.trim()) {
+                switchToChat(askQuery)
+                setAskQuery("")
+              }
             }}
             className="flex-1 text-sm text-slate-700 outline-none bg-transparent placeholder-slate-400"
           />
           <button
-            onClick={() => switchToChat(searchQuery || undefined)}
+            onClick={() => {
+              if (askQuery.trim()) {
+                switchToChat(askQuery)
+                setAskQuery("")
+              } else {
+                switchToChat()
+              }
+            }}
             className="w-8 h-8 rounded-full bg-[#22b722] flex items-center justify-center flex-shrink-0 hover:bg-[#1a9a1a] transition-colors"
           >
             <ArrowRight className="h-4 w-4 text-white" />
@@ -987,6 +1096,19 @@ export function AssistantPage() {
             )}
           </div>
         </div>
+
+        {/* Problem 1: Separate list filter input */}
+        {activeTab !== "chunks" && (
+          <div className="mt-2">
+            <input
+              type="text"
+              placeholder="Фильтр по названию..."
+              value={listFilter}
+              onChange={(e) => setListFilter(e.target.value)}
+              className="w-full h-9 px-3 text-sm rounded-xl border border-slate-200 outline-none focus:border-[#22b722] bg-white text-slate-700 placeholder-slate-400"
+            />
+          </div>
+        )}
       </div>
 
       {/* List */}
@@ -1173,7 +1295,7 @@ export function AssistantPage() {
 
       {/* Floating ask button */}
       <button
-        onClick={() => setView("chat")}
+        onClick={() => handleNewChat()}
         className="fixed bottom-6 right-6 flex items-center gap-2 px-6 py-3.5 bg-[#22b722] text-white rounded-3xl shadow-lg hover:bg-[#1a9a1a] transition-colors font-medium text-sm z-40"
       >
         <Sparkles className="h-4 w-4" />
@@ -1199,16 +1321,38 @@ export function AssistantPage() {
             <BrainCircuit className="h-5 w-5 text-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-slate-800">Мой AI Ассистент</p>
+            <p className="text-sm font-semibold text-slate-800">
+              {currentSessionId
+                ? (sessions.find((s) => s.id === currentSessionId)?.title ?? "Чат")
+                : "Новый чат"}
+            </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <span className="text-xs text-slate-500">Онлайн · Готов отвечать на ваши вопросы</span>
             </div>
           </div>
         </div>
-        <button className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
-          <Settings2 className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Problem 2: New chat button */}
+          <button
+            onClick={handleNewChat}
+            className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            title="Новый чат"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          {/* Problem 2: Sessions history button */}
+          <button
+            onClick={() => setShowSessionsPanel(true)}
+            className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            title="История чатов"
+          >
+            <Clock className="h-4 w-4" />
+          </button>
+          <button className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
+            <Settings2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Two-column body */}
@@ -1222,8 +1366,12 @@ export function AssistantPage() {
             </div>
           )}
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+          {/* Problem 3: Messages container with scroll handler and relative positioning */}
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 relative"
+          >
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
                 <BrainCircuit className="h-12 w-12 opacity-20" />
@@ -1342,26 +1490,17 @@ export function AssistantPage() {
               )
             )}
 
-            {/* Suggested questions */}
-            {suggestedQuestions.length > 0 && !isStreaming && (
-              <div className="mt-2">
-                <p className="text-xs text-slate-400 mb-2 px-1">Возможно, вы имели в виду:</p>
-                <div className="flex flex-wrap gap-2">
-                  {suggestedQuestions.map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={() => sendMessageWithText(q)}
-                      className="flex items-center justify-between gap-3 px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 hover:border-[#22b722] hover:text-[#22b722] transition-colors"
-                    >
-                      {q}
-                      <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div ref={bottomRef} />
+
+            {/* Problem 3: Scroll-to-bottom button */}
+            {showScrollDown && (
+              <button
+                onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+                className="sticky bottom-4 self-end mr-2 w-10 h-10 rounded-full bg-white border border-slate-200 shadow-lg flex items-center justify-center hover:bg-slate-50 transition-colors"
+              >
+                <ChevronDown className="h-5 w-5 text-slate-600" />
+              </button>
+            )}
           </div>
 
           {/* Input */}
@@ -1478,7 +1617,6 @@ export function AssistantPage() {
                     a.href = url
                     a.download = "ответ-ассистента.txt"
                     a.click()
-                    // Defer revoke: browser needs time to start the download before the URL is released
                     setTimeout(() => URL.revokeObjectURL(url), 10000)
                   }}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-white transition-colors text-left w-full"
@@ -1521,6 +1659,18 @@ export function AssistantPage() {
           )}
         </div>
       </div>
+
+      {/* Problem 2: Sessions panel */}
+      {showSessionsPanel && (
+        <SessionsPanel
+          sessions={sessions}
+          currentSessionId={currentSessionId}
+          onSelect={handleSelectSession}
+          onDelete={handleDeleteSession}
+          onNewChat={handleNewChat}
+          onClose={() => setShowSessionsPanel(false)}
+        />
+      )}
     </div>
   )
 
