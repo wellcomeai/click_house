@@ -474,14 +474,7 @@ async def chat(
                     # Send session_id as first SSE event
                     yield f"data: {json.dumps({'type': 'session_id', 'session_id': str(session_id)}, ensure_ascii=False)}\n\n"
 
-                query_embedding = await get_embedding(request.message)
-                if query_embedding is None:
-                    yield f"data: {json.dumps({'type': 'error', 'content': 'Не удалось создать эмбеддинг запроса'}, ensure_ascii=False)}\n\n"
-                    yield "data: [DONE]\n\n"
-                    return
-
-                chunks = await search_kb(db, current_user.id, query_embedding, k=5)
-
+                # Load history first so we can enrich the embedding query with context
                 history_rows = (
                     await db.execute(
                         select(AssistantChatHistory)
@@ -497,6 +490,27 @@ async def chat(
                     {"role": r.role, "content": r.content}
                     for r in reversed(history_rows)
                 ]
+
+                # Build a context-aware search query:
+                # prepend the last 3 user messages so that follow-up questions
+                # ("tell me more", "what about X?") still hit relevant chunks.
+                recent_user_msgs = [
+                    r.content for r in history_rows if r.role == "user"
+                ][:3]  # history_rows is DESC, so these are the most recent
+                if recent_user_msgs:
+                    # Restore chronological order and join with the new message
+                    context_prefix = " ".join(reversed(recent_user_msgs))
+                    search_query = f"{context_prefix} {request.message}"
+                else:
+                    search_query = request.message
+
+                query_embedding = await get_embedding(search_query)
+                if query_embedding is None:
+                    yield f"data: {json.dumps({'type': 'error', 'content': 'Не удалось создать эмбеддинг запроса'}, ensure_ascii=False)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+
+                chunks = await search_kb(db, current_user.id, query_embedding, k=5)
 
                 if not request.skip_history:
                     # Auto-update title if session title is still default and this is the first message
